@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as THREE from "three";
 import { BodyPartsEngine, type BP3DCameraMode, type BP3DMarker } from "./engine";
+import { BP3D_SYSTEMS } from "./types";
 
 interface BodyPartsViewerProps {
   onReady?: (engine: BodyPartsEngine) => void;
@@ -52,7 +54,7 @@ export default function BodyPartsViewer({
   const [camInfo, setCamInfo] = useState({ az: 0, el: 0, dist: 3.6 });
   const [explodeVal, setExplodeVal] = useState(0);
   const [hoverInfo, setHoverInfo] = useState<{ id: string; name: string; x: number; y: number } | null>(null);
-  const [, setMarkersList] = useState<BP3DMarker[]>([]);
+  const [markersList, setMarkersList] = useState<BP3DMarker[]>([]);
 
   useEffect(() => {
     if (!mountRef.current || !overlayRef.current) return;
@@ -103,6 +105,38 @@ export default function BodyPartsViewer({
 
   const engine = engineRef.current;
   const az = ((Math.round(camInfo.az) % 360) + 360) % 360;
+
+  // Bagian-bagian yang sedang disorot (Highlight Info & 3D Proyeksi)
+  const highlightedParts = useMemo(() => {
+    const eng = engineRef.current;
+    if (!eng || !eng.atlas) return [];
+    const list: Array<{
+      id: string;
+      name: string;
+      conceptId: string;
+      system: string;
+      proj: { x: number; y: number; visible: boolean; inFront: boolean } | null;
+    }> = [];
+    for (const id of eng.highlightedIds) {
+      const part = eng.atlas.parts.find((p) => p.id === id || p.conceptId === id);
+      if (!part) continue;
+      const center = new THREE.Vector3()
+        .fromArray(part.bounds[0])
+        .add(new THREE.Vector3().fromArray(part.bounds[1]))
+        .multiplyScalar(0.5);
+      const proj = eng.projectPoint(center);
+      const sys = BP3D_SYSTEMS.find((s) => s.id === part.system);
+      list.push({
+        id: part.id,
+        name: part.name,
+        conceptId: part.conceptId,
+        system: sys?.nameId ?? part.system,
+        proj,
+      });
+      if (list.length >= 4) break;
+    }
+    return list;
+  }, [camInfo, markersList]);
 
   return (
     <div className="relative h-full w-full select-none overflow-hidden bg-white">
@@ -173,6 +207,76 @@ export default function BodyPartsViewer({
           </button>
         </div>
       )}
+
+      {/* Banner Teks Highlight Persistent (Menunjukkan apa yang sedang disorot di Scan Medis) */}
+      {!engine?.markMode && !isZen && highlightedParts.length > 0 && (
+        <div className="absolute left-1/2 top-3 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full border border-accent bg-white/95 px-3 py-1 shadow-md backdrop-blur-md max-w-[92vw]">
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-deep" />
+          </span>
+          <div className="text-[12px] font-semibold text-ink truncate">
+            <span>Disorot: </span>
+            <span className="text-accent-deep">{highlightedParts[0].name}</span>
+            {highlightedParts.length > 1 && (
+              <span className="text-faint text-[11px] font-normal"> (+{highlightedParts.length - 1} lainnya)</span>
+            )}
+          </div>
+          <button
+            className="rounded bg-tint px-2 py-0.5 text-[11px] font-medium text-accent-deep hover:bg-accent hover:text-white transition-colors shrink-0"
+            onClick={() => void engine?.focus(highlightedParts[0].id, { duration: 1000 })}
+            title="Arahkan kamera ke organ yang disorot"
+          >
+            ⌖ Fokus
+          </button>
+          <button
+            className="text-faint hover:text-ink text-[12px] px-1 shrink-0"
+            onClick={() => engine?.unhighlight()}
+            title="Hapus sorotan"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Pin & Tag Teks 3D Melayang Langsung pada Organ yang Disorot di Scan Medis */}
+      {!engine?.markMode &&
+        highlightedParts.map((p) => {
+          if (!p.proj || !p.proj.visible || !p.proj.inFront) return null;
+          return (
+            <div
+              key={p.id}
+              className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full z-20 flex flex-col items-center cursor-pointer transition-transform duration-100"
+              style={{ left: p.proj.x, top: p.proj.y - 8 }}
+              onClick={() => void engine?.focus(p.id, { duration: 1000 })}
+            >
+              <div className="flex items-center gap-1.5 rounded-full border border-accent bg-white/95 px-2.5 py-1 shadow-md backdrop-blur-md">
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-deep" />
+                </span>
+                <div className="flex flex-col text-left leading-none">
+                  <span className="text-[11.5px] font-bold text-ink whitespace-nowrap">{p.name}</span>
+                  <span className="font-mono text-[9px] text-accent-deep font-semibold whitespace-nowrap mt-0.5">
+                    {p.conceptId ? `${p.conceptId} · ` : ""}{p.system}
+                  </span>
+                </div>
+                <button
+                  className="ml-1 text-faint hover:text-ink text-[11px] leading-none"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    engine?.unhighlight();
+                  }}
+                  title="Tutup Sorotan"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="h-2 w-0.5 bg-accent/70" />
+              <div className="h-1 w-1 rounded-full bg-accent" />
+            </div>
+          );
+        })}
 
       {/* Floating Toolbar Navigasi & Layar Penuh Kanan Atas */}
       <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded border border-line-strong bg-white/95 p-1 shadow-sm backdrop-blur">

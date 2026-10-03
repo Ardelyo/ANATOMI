@@ -885,6 +885,20 @@ export class AnatomyEngine {
     }
     return box;
   }
+  partCenter(t: Target): THREE.Vector3 | null {
+    const box = this.boundsOf(t);
+    return box ? box.getCenter(new THREE.Vector3()) : null;
+  }
+  projectPoint(p: THREE.Vector3 | [number, number, number]): { x: number; y: number; visible: boolean; inFront: boolean } {
+    const v = p instanceof THREE.Vector3 ? p.clone() : new THREE.Vector3(...p);
+    v.project(this.camera);
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const x = ((v.x + 1) * rect.width) / 2;
+    const y = ((-v.y + 1) * rect.height) / 2;
+    const inFront = v.z < 1;
+    const visible = inFront && x >= 0 && x <= rect.width && y >= 0 && y <= rect.height;
+    return { x, y, visible, inFront };
+  }
   focus(t: Target, o: { duration?: number; distance?: number; azimuth?: number; elevation?: number } = {}) {
     const box = this.boundsOf(t);
     if (!box) return Promise.resolve();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnatomyEngine } from "@/anatomy/engine";
 import { SYSTEMS, metaFor } from "@/anatomy/catalog";
 
@@ -85,6 +85,17 @@ export default function Viewport({
   const active = new Set(engine?.activeAnimations() ?? []);
   const rect = boxRef.current?.getBoundingClientRect();
   const az = ((Math.round(cam.az) % 360) + 360) % 360;
+
+  // Struktur yang sedang disorot (Highlight Info & 3D Proyeksi)
+  const highlightedList = useMemo(() => {
+    if (!engine) return [];
+    return engine.highlighted().slice(0, 4).map((id) => {
+      const meta = metaFor(id);
+      const center = engine.partCenter(id);
+      const proj = center ? engine.projectPoint(center) : null;
+      return { id, name: meta.name, latin: meta.latin, system: meta.system, proj };
+    });
+  }, [engine, cam, engine?.selectedId]);
 
   const download = () => {
     if (!engine) return;
@@ -232,7 +243,7 @@ export default function Viewport({
 
       {/* Mode tandai */}
       {engine?.markMode && (
-        <div className="absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-3 rounded border border-accent bg-white px-3 py-1.5 text-[12.5px] text-ink shadow-sm">
+        <div className="absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-3 rounded border border-accent bg-white px-3 py-1.5 text-[12.5px] text-ink shadow-sm z-30">
           <span className="inline-block h-2 w-2 rounded-full bg-accent animate-pulse" />
           Klik titik pada model untuk menandai gejala
           <button className="btn !h-6" onClick={() => engine.setMarkMode(false)}>
@@ -240,6 +251,76 @@ export default function Viewport({
           </button>
         </div>
       )}
+
+      {/* Banner Teks Highlight Persistent (Menunjukkan apa yang sedang disorot) */}
+      {!engine?.markMode && !isZen && highlightedList.length > 0 && (
+        <div className="absolute left-1/2 top-3 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full border border-accent bg-white/95 px-3 py-1 shadow-md backdrop-blur-md max-w-[92vw]">
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-deep" />
+          </span>
+          <div className="text-[12px] font-semibold text-ink truncate">
+            <span>Disorot: </span>
+            <span className="text-accent-deep">{highlightedList[0].name}</span>
+            {highlightedList.length > 1 && (
+              <span className="text-faint text-[11px] font-normal"> (+{highlightedList.length - 1} lainnya)</span>
+            )}
+          </div>
+          <button
+            className="rounded bg-tint px-2 py-0.5 text-[11px] font-medium text-accent-deep hover:bg-accent hover:text-white transition-colors shrink-0"
+            onClick={() => void engine?.focus(highlightedList[0].id, { duration: 1000 })}
+            title="Arahkan kamera ke organ yang disorot"
+          >
+            ⌖ Fokus
+          </button>
+          <button
+            className="text-faint hover:text-ink text-[12px] px-1 shrink-0"
+            onClick={() => engine?.unhighlight()}
+            title="Hapus sorotan"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Pin & Tag Teks 3D Melayang Langsung pada Organ yang Disorot */}
+      {!engine?.markMode &&
+        highlightedList.map((p) => {
+          if (!p.proj || !p.proj.visible || !p.proj.inFront) return null;
+          return (
+            <div
+              key={p.id}
+              className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full z-20 flex flex-col items-center cursor-pointer transition-transform duration-100"
+              style={{ left: p.proj.x, top: p.proj.y - 8 }}
+              onClick={() => void engine?.focus(p.id, { duration: 1000 })}
+            >
+              <div className="flex items-center gap-1.5 rounded-full border border-accent bg-white/95 px-2.5 py-1 shadow-md backdrop-blur-md">
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-deep" />
+                </span>
+                <div className="flex flex-col text-left leading-none">
+                  <span className="text-[11.5px] font-bold text-ink whitespace-nowrap">{p.name}</span>
+                  <span className="font-mono text-[9px] text-accent-deep font-semibold whitespace-nowrap mt-0.5">
+                    {p.system}
+                  </span>
+                </div>
+                <button
+                  className="ml-1 text-faint hover:text-ink text-[11px] leading-none"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    engine?.unhighlight(p.id);
+                  }}
+                  title="Tutup Sorotan"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="h-2 w-0.5 bg-accent/70" />
+              <div className="h-1 w-1 rounded-full bg-accent" />
+            </div>
+          );
+        })}
 
       {/* Tooltip hover */}
       {hover && rect && !engine?.markMode && (
