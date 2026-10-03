@@ -1,3 +1,5 @@
+export type ViewMode = "simulation" | "bodyparts3d";
+
 export interface Condition {
   id: number;
   slug: string;

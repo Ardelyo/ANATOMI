@@ -3,17 +3,20 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { AnatomyEngine } from "@/anatomy/engine";
 import { createApi, type AnatomyApi } from "@/anatomy/script";
+import type { BodyPartsEngine } from "@/anatomy/bodyparts3d/engine";
+import { createBP3DApi } from "@/anatomy/bodyparts3d/script";
 import Viewport from "./Viewport";
+import BodyPartsViewer from "@/anatomy/bodyparts3d/BodyPartsViewer";
 import LeftPanel from "./LeftPanel";
 import InfoTab from "./InfoTab";
 import SymptomTab, { type PendingMark } from "./SymptomTab";
 import ScriptTab from "./ScriptTab";
-import BodyPartsViewer from "@/anatomy/bodyparts3d/BodyPartsViewer";
-import type { Annotation, Condition, Symptom, Tab } from "./types";
+import type { Annotation, Condition, Symptom, Tab, ViewMode } from "./types";
 
 declare global {
   interface Window {
-    anatomy?: AnatomyApi;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    anatomy?: any;
   }
 }
 
@@ -25,9 +28,10 @@ const TABS: [Tab, string][] = [
 
 export default function AtlasApp() {
   const [engine, setEngine] = useState<AnatomyEngine | null>(null);
+  const [bp3dEngine, setBp3dEngine] = useState<BodyPartsEngine | null>(null);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const [tab, setTab] = useState<Tab>("info");
-  const [viewMode, setViewMode] = useState<"simulation" | "bodyparts3d">("simulation");
+  const [viewMode, setViewMode] = useState<ViewMode>("simulation");
 
   // Panel visibility & Fullscreen / Zen states
   const [leftVisible, setLeftVisible] = useState(true);
@@ -42,8 +46,28 @@ export default function AtlasApp() {
   const [pending, setPending] = useState<PendingMark | null>(null);
 
   const labels = useMemo(() => new Map(symptoms.map((s) => [s.slug, s.label])), [symptoms]);
-
   const isZen = !leftVisible && !rightVisible && !headerVisible;
+
+  const toggleZen = useCallback(() => {
+    if (isZen) {
+      setLeftVisible(true);
+      setRightVisible(true);
+      setHeaderVisible(true);
+    } else {
+      setLeftVisible(false);
+      setRightVisible(false);
+      setHeaderVisible(false);
+      setLeftMobileOpen(false);
+    }
+  }, [isZen]);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().catch(() => undefined);
+    } else {
+      document.exitFullscreen().catch(() => undefined);
+    }
+  }, []);
 
   useEffect(() => {
     fetch("/api/symptoms")
@@ -52,7 +76,7 @@ export default function AtlasApp() {
       .catch(() => undefined);
   }, []);
 
-  // sambungkan engine ↔ React
+  // Sambungkan Simulation Engine ↔ React
   useEffect(() => {
     if (!engine) return;
     const offs = [
@@ -65,18 +89,67 @@ export default function AtlasApp() {
       }),
       engine.on<string>("markerclick", (id) => void engine.focusMarker(id)),
     ];
-    window.anatomy = createApi(
-      engine,
-      { aborted: false, cbs: new Set() },
-      (level, ...a) => console[level === "ok" ? "log" : level]("[ANATOMI]", ...a),
-    );
 
+    if (viewMode === "simulation") {
+      window.anatomy = createApi(
+        engine,
+        { aborted: false, cbs: new Set() },
+        (level, ...a) => console[level === "ok" ? "log" : level]("[ANATOMI]", ...a),
+      );
+    }
+
+    return () => {
+      offs.forEach((o) => o());
+    };
+  }, [engine, viewMode]);
+
+  // Sambungkan BodyParts3D Engine ↔ React
+  useEffect(() => {
+    if (!bp3dEngine) return;
+    const offs = [
+      bp3dEngine.on("change", () => rerender()),
+      bp3dEngine.on<{ partId: string; point: [number, number, number] }>("markpoint", (p) => {
+        setPending({ partId: p.partId, point: p.point });
+        setRightVisible(true);
+        setTab("symptoms");
+        bp3dEngine.setMarkMode(false);
+      }),
+      bp3dEngine.on<string>("markerclick", (id) => bp3dEngine.focusMarker(id)),
+    ];
+
+    if (viewMode === "bodyparts3d") {
+      window.anatomy = createBP3DApi(
+        bp3dEngine,
+        { aborted: false, cbs: new Set() },
+        (level, ...a) => console[level === "ok" ? "log" : level]("[ANATOMI BP3D]", ...a),
+      );
+    }
+
+    // Sinkronisasi marker yang ada ke bp3dEngine
+    for (const a of annotations) {
+      bp3dEngine.addMarker({
+        id: `a${a.id}`,
+        partId: a.partId,
+        point: a.point,
+        label: a.label,
+        severity: a.severity,
+        persistedId: a.id,
+      });
+    }
+
+    return () => {
+      offs.forEach((o) => o());
+    };
+  }, [bp3dEngine, viewMode, annotations]);
+
+  // Muat anotasi awal dari API
+  useEffect(() => {
     fetch("/api/annotations")
       .then((r) => r.json())
       .then((rows: Annotation[]) => {
         setAnnotations(rows);
-        for (const a of rows)
-          engine.addMarker({
+        for (const a of rows) {
+          engine?.addMarker({
             id: `a${a.id}`,
             partId: a.partId,
             point: a.point,
@@ -84,14 +157,18 @@ export default function AtlasApp() {
             severity: a.severity,
             persistedId: a.id,
           });
+          bp3dEngine?.addMarker({
+            id: `a${a.id}`,
+            partId: a.partId,
+            point: a.point,
+            label: a.label,
+            severity: a.severity,
+            persistedId: a.id,
+          });
+        }
       })
       .catch(() => undefined);
-
-    return () => {
-      offs.forEach((o) => o());
-      delete window.anatomy;
-    };
-  }, [engine]);
+  }, [engine, bp3dEngine]);
 
   // Pantau status browser fullscreen
   useEffect(() => {
@@ -105,7 +182,6 @@ export default function AtlasApp() {
   // Keyboard shortcuts untuk kendali cepat layar penuh & navigasi
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Abaikan jika fokus sedang berada pada input atau textarea
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
 
@@ -135,51 +211,37 @@ export default function AtlasApp() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isZen]);
+  }, [isZen, toggleZen, toggleFullscreen]);
 
-  const toggleZen = useCallback(() => {
-    if (isZen) {
-      setLeftVisible(true);
-      setRightVisible(true);
-      setHeaderVisible(true);
-    } else {
-      setLeftVisible(false);
-      setRightVisible(false);
-      setHeaderVisible(false);
-      setLeftMobileOpen(false);
-    }
-  }, [isZen]);
-
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen().catch(() => undefined);
-    } else {
-      document.exitFullscreen().catch(() => undefined);
-    }
-  }, []);
-
-  const showStructures = useCallback(
-    (structures: string[]) => {
-      if (!engine) return;
-      engine.unhighlight();
-      engine.highlight(structures, { dim: true, intensity: 0.6 });
-      void engine.focus(structures);
+  const onShow = useCallback(
+    (c: Condition) => {
+      if (viewMode === "simulation" && engine) {
+        engine.unhighlight();
+        engine.highlight(c.structures, { dim: true, intensity: 0.6 });
+        void engine.focus(c.structures);
+      } else if (viewMode === "bodyparts3d" && bp3dEngine) {
+        bp3dEngine.unhighlight();
+        bp3dEngine.highlight(c.structures);
+        if (c.structures[0]) bp3dEngine.focus(c.structures[0]);
+      }
     },
-    [engine],
+    [viewMode, engine, bp3dEngine],
   );
 
-  const onShow = useCallback((c: Condition) => showStructures(c.structures), [showStructures]);
   const onFocus = useCallback(
     (s: string) => {
-      if (!engine) return;
-      engine.reveal(s);
-      void engine.focus(s);
+      if (viewMode === "simulation" && engine) {
+        engine.reveal(s);
+        void engine.focus(s);
+      } else if (viewMode === "bodyparts3d" && bp3dEngine) {
+        bp3dEngine.focus(s);
+      }
     },
-    [engine],
+    [viewMode, engine, bp3dEngine],
   );
 
   const savePending = async (f: { label: string; note: string; severity: number }) => {
-    if (!pending || !engine) return;
+    if (!pending) return;
     const res = await fetch("/api/annotations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -187,14 +249,26 @@ export default function AtlasApp() {
     });
     if (!res.ok) return;
     const row = (await res.json()) as Annotation;
-    engine.addMarker({
-      id: `a${row.id}`,
-      partId: row.partId,
-      point: row.point,
-      label: row.label,
-      severity: row.severity,
-      persistedId: row.id,
-    });
+
+    if (viewMode === "simulation" && engine) {
+      engine.addMarker({
+        id: `a${row.id}`,
+        partId: row.partId,
+        point: row.point,
+        label: row.label,
+        severity: row.severity,
+        persistedId: row.id,
+      });
+    } else if (viewMode === "bodyparts3d" && bp3dEngine) {
+      bp3dEngine.addMarker({
+        id: `a${row.id}`,
+        partId: row.partId,
+        point: row.point,
+        label: row.label,
+        severity: row.severity,
+        persistedId: row.id,
+      });
+    }
     setAnnotations((a) => [...a, row]);
     setPending(null);
   };
@@ -202,19 +276,23 @@ export default function AtlasApp() {
   const deleteAnnotation = async (a: Annotation) => {
     await fetch(`/api/annotations?id=${a.id}`, { method: "DELETE" });
     engine?.removeMarker(`a${a.id}`);
+    bp3dEngine?.removeMarker(`a${a.id}`);
     setAnnotations((list) => list.filter((x) => x.id !== a.id));
   };
 
-  const hasHighlight = (engine?.highlighted().length ?? 0) > 0;
+  const hasHighlight =
+    viewMode === "simulation"
+      ? (engine?.highlighted().length ?? 0) > 0
+      : (bp3dEngine?.highlightedIds.size ?? 0) > 0;
 
   // Penentuan grid kolom dinamis berdasarkan visibilitas panel
   const gridLayoutClass = useMemo(() => {
     if (leftVisible && rightVisible) {
-      return "lg:grid-cols-[280px_minmax(0,1fr)_390px]";
+      return "lg:grid-cols-[290px_minmax(0,1fr)_400px]";
     } else if (leftVisible && !rightVisible) {
-      return "lg:grid-cols-[280px_minmax(0,1fr)]";
+      return "lg:grid-cols-[290px_minmax(0,1fr)]";
     } else if (!leftVisible && rightVisible) {
-      return "lg:grid-cols-[minmax(0,1fr)_390px]";
+      return "lg:grid-cols-[minmax(0,1fr)_400px]";
     } else {
       return "lg:grid-cols-[1fr]";
     }
@@ -260,23 +338,31 @@ export default function AtlasApp() {
                   viewMode === "simulation" ? "bg-white text-ink shadow-xs font-semibold" : "text-mute hover:text-ink"
                 }`}
                 onClick={() => setViewMode("simulation")}
+                title="Mode Simulasi Dinamis & Pergerakan Sendi"
               >
-                Simulasi & Gejala
+                Simulasi & Kinematik
               </button>
               <button
                 className={`h-6 rounded px-2.5 font-medium transition-colors ${
                   viewMode === "bodyparts3d" ? "bg-white text-ink shadow-xs font-semibold" : "text-mute hover:text-ink"
                 }`}
                 onClick={() => setViewMode("bodyparts3d")}
+                title="Mode Scan Medis Nyata BodyParts3D (2.234 Meshes)"
               >
-                Scan Medis (2.234 Meshes)
+                Scan Medis (2.234 Model)
               </button>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             {hasHighlight && (
-              <button className="btn !h-7 !text-[12px]" onClick={() => engine?.unhighlight()}>
+              <button
+                className="btn !h-7 !text-[12px]"
+                onClick={() => {
+                  engine?.unhighlight();
+                  bp3dEngine?.unhighlight();
+                }}
+              >
                 Hapus sorotan
               </button>
             )}
@@ -313,40 +399,30 @@ export default function AtlasApp() {
         </header>
       )}
 
-      {/* Konten Utama */}
-      {viewMode === "bodyparts3d" ? (
-        <div className="relative min-h-0 flex-1">
-          <BodyPartsViewer
-            isZen={isZen}
-            onToggleZen={toggleZen}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={toggleFullscreen}
-          />
-        </div>
-      ) : (
-        <div className={`relative flex min-h-0 flex-1 flex-col lg:grid ${gridLayoutClass}`}>
-          {/* Panel Kiri: Struktur Anatomi & Pencarian */}
-          {/* Di layar besar mengikuti leftVisible, di mobile overlay mengikuti leftMobileOpen */}
-          {(leftVisible || leftMobileOpen) && (
-            <aside
-              className={`${
-                leftMobileOpen
-                  ? "fixed inset-y-12 left-0 z-30 block w-[300px] border-r shadow-lg lg:shadow-none"
-                  : leftVisible
-                  ? "hidden lg:static lg:block lg:w-auto lg:border-r"
-                  : "hidden"
-              } min-h-0 border-line bg-white`}
-            >
-              <LeftPanel engine={engine} />
-            </aside>
-          )}
-
-          {/* Viewport 3D Canvas */}
-          <main
-            className={`relative min-h-0 shrink-0 border-line ${
-              rightVisible ? "h-[54svh] border-b lg:h-auto lg:border-b-0" : "h-full flex-1 border-b-0"
-            }`}
+      {/* Konten Utama: 3-Kolom Sempurna pada Kedua Mode */}
+      <div className={`relative flex min-h-0 flex-1 flex-col lg:grid ${gridLayoutClass}`}>
+        {/* Panel Kiri: Struktur Anatomi & Pencarian */}
+        {(leftVisible || leftMobileOpen) && (
+          <aside
+            className={`${
+              leftMobileOpen
+                ? "fixed inset-y-12 left-0 z-30 block w-[300px] border-r shadow-lg lg:shadow-none"
+                : leftVisible
+                ? "hidden lg:static lg:block lg:w-auto lg:border-r"
+                : "hidden"
+            } min-h-0 border-line bg-white`}
           >
+            <LeftPanel engine={engine} bp3dEngine={bp3dEngine} mode={viewMode} />
+          </aside>
+        )}
+
+        {/* Viewport 3D Canvas */}
+        <main
+          className={`relative min-h-0 shrink-0 border-line ${
+            rightVisible ? "h-[54svh] border-b lg:h-auto lg:border-b-0" : "h-full flex-1 border-b-0"
+          }`}
+        >
+          {viewMode === "simulation" ? (
             <Viewport
               engine={engine}
               onReady={setEngine}
@@ -361,63 +437,85 @@ export default function AtlasApp() {
               isFullscreen={isFullscreen}
               onToggleFullscreen={toggleFullscreen}
             />
-          </main>
-
-          {/* Panel Kanan: Tab Info, Gejala, dan Skrip */}
-          {rightVisible && (
-            <aside className="flex min-h-0 flex-1 flex-col bg-white lg:border-l lg:border-line">
-              <nav className="flex shrink-0 border-b border-line" role="tablist">
-                {TABS.map(([k, label]) => (
-                  <button
-                    key={k}
-                    role="tab"
-                    aria-selected={tab === k}
-                    onClick={() => setTab(k)}
-                    className={`relative h-10 flex-1 text-[13px] font-medium ${
-                      tab === k ? "text-accent-deep" : "text-mute hover:text-ink"
-                    }`}
-                  >
-                    {label}
-                    {k === "symptoms" && annotations.length > 0 && (
-                      <span className="ml-1.5 font-mono text-[10.5px] text-faint">{annotations.length}</span>
-                    )}
-                    {tab === k && <span className="absolute inset-x-0 bottom-[-1px] h-[2px] bg-accent" />}
-                  </button>
-                ))}
-              </nav>
-              <div className="thin-scroll min-h-0 flex-1 overflow-y-auto">
-                {tab === "info" && (
-                  <InfoTab
-                    engine={engine}
-                    labels={labels}
-                    onShow={onShow}
-                    onFocus={onFocus}
-                    onMark={() => {
-                      setTab("symptoms");
-                      engine?.setMarkMode(true);
-                    }}
-                  />
-                )}
-                {tab === "symptoms" && (
-                  <SymptomTab
-                    engine={engine}
-                    symptoms={symptoms}
-                    labels={labels}
-                    annotations={annotations}
-                    pending={pending}
-                    onShow={onShow}
-                    onFocus={onFocus}
-                    onSavePending={(f) => void savePending(f)}
-                    onCancelPending={() => setPending(null)}
-                    onDeleteAnnotation={(a) => void deleteAnnotation(a)}
-                  />
-                )}
-                {tab === "script" && <ScriptTab engine={engine} />}
-              </div>
-            </aside>
+          ) : (
+            <BodyPartsViewer
+              onReady={setBp3dEngine}
+              leftVisible={leftVisible}
+              onToggleLeft={() => setLeftVisible((v) => !v)}
+              rightVisible={rightVisible}
+              onToggleRight={() => setRightVisible((v) => !v)}
+              headerVisible={headerVisible}
+              onToggleHeader={() => setHeaderVisible((v) => !v)}
+              isZen={isZen}
+              onToggleZen={toggleZen}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+            />
           )}
-        </div>
-      )}
+        </main>
+
+        {/* Panel Kanan: Tab Info, Gejala, dan Skrip */}
+        {rightVisible && (
+          <aside className="flex min-h-0 flex-1 flex-col bg-white lg:border-l lg:border-line">
+            <nav className="flex shrink-0 border-b border-line" role="tablist">
+              {TABS.map(([k, label]) => (
+                <button
+                  key={k}
+                  role="tab"
+                  aria-selected={tab === k}
+                  onClick={() => setTab(k)}
+                  className={`relative h-10 flex-1 text-[13px] font-medium ${
+                    tab === k ? "text-accent-deep" : "text-mute hover:text-ink"
+                  }`}
+                >
+                  {label}
+                  {k === "symptoms" && annotations.length > 0 && (
+                    <span className="ml-1.5 font-mono text-[10.5px] text-faint">{annotations.length}</span>
+                  )}
+                  {tab === k && <span className="absolute inset-x-0 bottom-[-1px] h-[2px] bg-accent" />}
+                </button>
+              ))}
+            </nav>
+            <div className="thin-scroll min-h-0 flex-1 overflow-y-auto">
+              {tab === "info" && (
+                <InfoTab
+                  engine={engine}
+                  bp3dEngine={bp3dEngine}
+                  mode={viewMode}
+                  labels={labels}
+                  onShow={onShow}
+                  onFocus={onFocus}
+                  onMark={() => {
+                    setTab("symptoms");
+                    if (viewMode === "simulation") {
+                      engine?.setMarkMode(true);
+                    } else {
+                      bp3dEngine?.setMarkMode(true);
+                    }
+                  }}
+                />
+              )}
+              {tab === "symptoms" && (
+                <SymptomTab
+                  engine={engine}
+                  bp3dEngine={bp3dEngine}
+                  mode={viewMode}
+                  symptoms={symptoms}
+                  labels={labels}
+                  annotations={annotations}
+                  pending={pending}
+                  onShow={onShow}
+                  onFocus={onFocus}
+                  onSavePending={(f) => void savePending(f)}
+                  onCancelPending={() => setPending(null)}
+                  onDeleteAnnotation={(a) => void deleteAnnotation(a)}
+                />
+              )}
+              {tab === "script" && <ScriptTab engine={engine} bp3dEngine={bp3dEngine} mode={viewMode} />}
+            </div>
+          </aside>
+        )}
+      </div>
     </div>
   );
 }

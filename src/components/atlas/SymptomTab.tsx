@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { AnatomyEngine } from "@/anatomy/engine";
+import type { BodyPartsEngine } from "@/anatomy/bodyparts3d/engine";
 import { metaFor } from "@/anatomy/catalog";
 import ConditionCard from "./ConditionCard";
-import { SEVERITY_STYLE, type Annotation, type Condition, type DiagnoseHit, type Symptom } from "./types";
+import { SEVERITY_STYLE, type Annotation, type Condition, type DiagnoseHit, type Symptom, type ViewMode } from "./types";
 
 export interface PendingMark {
   partId: string;
@@ -16,6 +17,8 @@ const SEV_DOT = ["", "#2f6fe0", "#d99a2b", "#d9534f"];
 
 export default function SymptomTab({
   engine,
+  bp3dEngine,
+  mode = "simulation",
   symptoms,
   labels,
   annotations,
@@ -27,6 +30,8 @@ export default function SymptomTab({
   onDeleteAnnotation,
 }: {
   engine: AnatomyEngine | null;
+  bp3dEngine?: BodyPartsEngine | null;
+  mode?: ViewMode;
   symptoms: Symptom[];
   labels: Map<string, string>;
   annotations: Annotation[];
@@ -78,7 +83,11 @@ export default function SymptomTab({
     setChosen([]);
     setHits([]);
     setOpenSlug(null);
-    engine?.unhighlight();
+    if (mode === "simulation") {
+      engine?.unhighlight();
+    } else {
+      bp3dEngine?.unhighlight();
+    }
   };
 
   const shownHits = chosen.length ? hits : [];
@@ -235,21 +244,40 @@ export default function SymptomTab({
           </p>
         ) : (
           <ul className="divide-y divide-line border border-line">
-            {annotations.map((a) => (
-              <li key={a.id} className="flex items-center gap-2.5 px-3 py-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SEV_DOT[a.severity] }} />
-                <button className="min-w-0 flex-1 text-left" onClick={() => void engine?.focusMarker(`a${a.id}`)}>
-                  <span className="block truncate text-[13px] text-ink">{a.label}</span>
-                  <span className="block truncate text-[11.5px] text-mute">
-                    {metaFor(a.partId).name}
-                    {a.note ? ` · ${a.note}` : ""}
-                  </span>
-                </button>
-                <button className="text-[12px] text-faint hover:text-danger" onClick={() => onDeleteAnnotation(a)} aria-label={`Hapus ${a.label}`}>
-                  Hapus
-                </button>
-              </li>
-            ))}
+            {annotations.map((a) => {
+              const partName =
+                mode === "simulation"
+                  ? metaFor(a.partId).name
+                  : bp3dEngine?.atlas?.parts.find((p) => p.id === a.partId)?.name ?? a.partId;
+
+              const onFocusMarker = () => {
+                if (mode === "simulation") {
+                  void engine?.focusMarker(`a${a.id}`);
+                } else {
+                  bp3dEngine?.focusMarker(`a${a.id}`);
+                }
+              };
+
+              return (
+                <li key={a.id} className="flex items-center gap-2.5 px-3 py-2">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SEV_DOT[a.severity] }} />
+                  <button className="min-w-0 flex-1 text-left" onClick={onFocusMarker}>
+                    <span className="block truncate text-[13px] text-ink">{a.label}</span>
+                    <span className="block truncate text-[11.5px] text-mute">
+                      {partName}
+                      {a.note ? ` · ${a.note}` : ""}
+                    </span>
+                  </button>
+                  <button
+                    className="text-[12px] text-faint hover:text-danger"
+                    onClick={() => onDeleteAnnotation(a)}
+                    aria-label={`Hapus ${a.label}`}
+                  >
+                    Hapus
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
