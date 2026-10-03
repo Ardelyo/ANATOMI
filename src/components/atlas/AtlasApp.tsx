@@ -8,6 +8,7 @@ import LeftPanel from "./LeftPanel";
 import InfoTab from "./InfoTab";
 import SymptomTab, { type PendingMark } from "./SymptomTab";
 import ScriptTab from "./ScriptTab";
+import BodyPartsViewer from "@/anatomy/bodyparts3d/BodyPartsViewer";
 import type { Annotation, Condition, Symptom, Tab } from "./types";
 
 declare global {
@@ -26,6 +27,7 @@ export default function AtlasApp() {
   const [engine, setEngine] = useState<AnatomyEngine | null>(null);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const [tab, setTab] = useState<Tab>("info");
+  const [viewMode, setViewMode] = useState<"simulation" | "bodyparts3d">("simulation");
 
   // Panel visibility & Fullscreen / Zen states
   const [leftVisible, setLeftVisible] = useState(true);
@@ -250,6 +252,26 @@ export default function AtlasApp() {
                 Visualisasi 3D Interaktif · Rangka, Otot, Organ, Koroner & Saraf
               </p>
             </div>
+
+            {/* Pemilih Mode Tampilan */}
+            <div className="hidden sm:flex items-center rounded border border-line-strong bg-wash p-0.5 text-[11.5px] ml-2">
+              <button
+                className={`h-6 rounded px-2.5 font-medium transition-colors ${
+                  viewMode === "simulation" ? "bg-white text-ink shadow-xs font-semibold" : "text-mute hover:text-ink"
+                }`}
+                onClick={() => setViewMode("simulation")}
+              >
+                Simulasi & Gejala
+              </button>
+              <button
+                className={`h-6 rounded px-2.5 font-medium transition-colors ${
+                  viewMode === "bodyparts3d" ? "bg-white text-ink shadow-xs font-semibold" : "text-mute hover:text-ink"
+                }`}
+                onClick={() => setViewMode("bodyparts3d")}
+              >
+                Scan Medis (2.234 Meshes)
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -292,99 +314,110 @@ export default function AtlasApp() {
       )}
 
       {/* Konten Utama */}
-      <div className={`relative flex min-h-0 flex-1 flex-col lg:grid ${gridLayoutClass}`}>
-        {/* Panel Kiri: Struktur Anatomi & Pencarian */}
-        {/* Di layar besar mengikuti leftVisible, di mobile overlay mengikuti leftMobileOpen */}
-        {(leftVisible || leftMobileOpen) && (
-          <aside
-            className={`${
-              leftMobileOpen
-                ? "fixed inset-y-12 left-0 z-30 block w-[300px] border-r shadow-lg lg:shadow-none"
-                : leftVisible
-                ? "hidden lg:static lg:block lg:w-auto lg:border-r"
-                : "hidden"
-            } min-h-0 border-line bg-white`}
-          >
-            <LeftPanel engine={engine} />
-          </aside>
-        )}
-
-        {/* Viewport 3D Canvas */}
-        <main
-          className={`relative min-h-0 shrink-0 border-line ${
-            rightVisible ? "h-[54svh] border-b lg:h-auto lg:border-b-0" : "h-full flex-1 border-b-0"
-          }`}
-        >
-          <Viewport
-            engine={engine}
-            onReady={setEngine}
-            leftVisible={leftVisible}
-            onToggleLeft={() => setLeftVisible((v) => !v)}
-            rightVisible={rightVisible}
-            onToggleRight={() => setRightVisible((v) => !v)}
-            headerVisible={headerVisible}
-            onToggleHeader={() => setHeaderVisible((v) => !v)}
+      {viewMode === "bodyparts3d" ? (
+        <div className="relative min-h-0 flex-1">
+          <BodyPartsViewer
             isZen={isZen}
             onToggleZen={toggleZen}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
           />
-        </main>
+        </div>
+      ) : (
+        <div className={`relative flex min-h-0 flex-1 flex-col lg:grid ${gridLayoutClass}`}>
+          {/* Panel Kiri: Struktur Anatomi & Pencarian */}
+          {/* Di layar besar mengikuti leftVisible, di mobile overlay mengikuti leftMobileOpen */}
+          {(leftVisible || leftMobileOpen) && (
+            <aside
+              className={`${
+                leftMobileOpen
+                  ? "fixed inset-y-12 left-0 z-30 block w-[300px] border-r shadow-lg lg:shadow-none"
+                  : leftVisible
+                  ? "hidden lg:static lg:block lg:w-auto lg:border-r"
+                  : "hidden"
+              } min-h-0 border-line bg-white`}
+            >
+              <LeftPanel engine={engine} />
+            </aside>
+          )}
 
-        {/* Panel Kanan: Tab Info, Gejala, dan Skrip */}
-        {rightVisible && (
-          <aside className="flex min-h-0 flex-1 flex-col bg-white lg:border-l lg:border-line">
-            <nav className="flex shrink-0 border-b border-line" role="tablist">
-              {TABS.map(([k, label]) => (
-                <button
-                  key={k}
-                  role="tab"
-                  aria-selected={tab === k}
-                  onClick={() => setTab(k)}
-                  className={`relative h-10 flex-1 text-[13px] font-medium ${
-                    tab === k ? "text-accent-deep" : "text-mute hover:text-ink"
-                  }`}
-                >
-                  {label}
-                  {k === "symptoms" && annotations.length > 0 && (
-                    <span className="ml-1.5 font-mono text-[10.5px] text-faint">{annotations.length}</span>
-                  )}
-                  {tab === k && <span className="absolute inset-x-0 bottom-[-1px] h-[2px] bg-accent" />}
-                </button>
-              ))}
-            </nav>
-            <div className="thin-scroll min-h-0 flex-1 overflow-y-auto">
-              {tab === "info" && (
-                <InfoTab
-                  engine={engine}
-                  labels={labels}
-                  onShow={onShow}
-                  onFocus={onFocus}
-                  onMark={() => {
-                    setTab("symptoms");
-                    engine?.setMarkMode(true);
-                  }}
-                />
-              )}
-              {tab === "symptoms" && (
-                <SymptomTab
-                  engine={engine}
-                  symptoms={symptoms}
-                  labels={labels}
-                  annotations={annotations}
-                  pending={pending}
-                  onShow={onShow}
-                  onFocus={onFocus}
-                  onSavePending={(f) => void savePending(f)}
-                  onCancelPending={() => setPending(null)}
-                  onDeleteAnnotation={(a) => void deleteAnnotation(a)}
-                />
-              )}
-              {tab === "script" && <ScriptTab engine={engine} />}
-            </div>
-          </aside>
-        )}
-      </div>
+          {/* Viewport 3D Canvas */}
+          <main
+            className={`relative min-h-0 shrink-0 border-line ${
+              rightVisible ? "h-[54svh] border-b lg:h-auto lg:border-b-0" : "h-full flex-1 border-b-0"
+            }`}
+          >
+            <Viewport
+              engine={engine}
+              onReady={setEngine}
+              leftVisible={leftVisible}
+              onToggleLeft={() => setLeftVisible((v) => !v)}
+              rightVisible={rightVisible}
+              onToggleRight={() => setRightVisible((v) => !v)}
+              headerVisible={headerVisible}
+              onToggleHeader={() => setHeaderVisible((v) => !v)}
+              isZen={isZen}
+              onToggleZen={toggleZen}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+            />
+          </main>
+
+          {/* Panel Kanan: Tab Info, Gejala, dan Skrip */}
+          {rightVisible && (
+            <aside className="flex min-h-0 flex-1 flex-col bg-white lg:border-l lg:border-line">
+              <nav className="flex shrink-0 border-b border-line" role="tablist">
+                {TABS.map(([k, label]) => (
+                  <button
+                    key={k}
+                    role="tab"
+                    aria-selected={tab === k}
+                    onClick={() => setTab(k)}
+                    className={`relative h-10 flex-1 text-[13px] font-medium ${
+                      tab === k ? "text-accent-deep" : "text-mute hover:text-ink"
+                    }`}
+                  >
+                    {label}
+                    {k === "symptoms" && annotations.length > 0 && (
+                      <span className="ml-1.5 font-mono text-[10.5px] text-faint">{annotations.length}</span>
+                    )}
+                    {tab === k && <span className="absolute inset-x-0 bottom-[-1px] h-[2px] bg-accent" />}
+                  </button>
+                ))}
+              </nav>
+              <div className="thin-scroll min-h-0 flex-1 overflow-y-auto">
+                {tab === "info" && (
+                  <InfoTab
+                    engine={engine}
+                    labels={labels}
+                    onShow={onShow}
+                    onFocus={onFocus}
+                    onMark={() => {
+                      setTab("symptoms");
+                      engine?.setMarkMode(true);
+                    }}
+                  />
+                )}
+                {tab === "symptoms" && (
+                  <SymptomTab
+                    engine={engine}
+                    symptoms={symptoms}
+                    labels={labels}
+                    annotations={annotations}
+                    pending={pending}
+                    onShow={onShow}
+                    onFocus={onFocus}
+                    onSavePending={(f) => void savePending(f)}
+                    onCancelPending={() => setPending(null)}
+                    onDeleteAnnotation={(a) => void deleteAnnotation(a)}
+                  />
+                )}
+                {tab === "script" && <ScriptTab engine={engine} />}
+              </div>
+            </aside>
+          )}
+        </div>
+      )}
     </div>
   );
 }
