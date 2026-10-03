@@ -1,0 +1,2 @@
+:HL["/ANATOMI/_next/static/chunks/0d_a6hh9mycme.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"k5iQ4vMihxryHcDSZa7L7"}
