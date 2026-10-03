@@ -69,6 +69,19 @@ export function createBP3DApi(e: BodyPartsEngine, ctl: Ctl, log: Log) {
     unhighlight: () => e.unhighlight(),
     isolate: (id: string | null) => e.isolate(id),
 
+    // ── PINPOINT HIGHLIGHT (Presisi Mikro Klinis)
+    pinpoint: (
+      idOrName: string,
+      o?: {
+        point?: [number, number, number];
+        label?: string;
+        severity?: number;
+        duration?: number;
+        distance?: number;
+        pulse?: boolean;
+      },
+    ) => e.pinpoint(idOrName, o),
+
     // ── Layer 15 Sistem
     layer: (system: string, o: { visible?: boolean; opacity?: number }) => e.setLayer(system as never, o),
     showAll: () => {
@@ -78,14 +91,16 @@ export function createBP3DApi(e: BodyPartsEngine, ctl: Ctl, log: Log) {
       for (const s of BP3D_SYSTEMS) e.setLayer(s.id, { visible: false });
     },
 
-    // ── Penguraian & Potongan Bidang
+    // ── Penguraian Spasial & Potongan Radiologis
     explode: (factor: number) => e.setExplode(factor),
     clip: (axis: "x" | "y" | "z" | null, pos?: number, flip?: boolean) => e.setClip(axis, pos ?? 0, flip ?? false),
     xray: (on = true) => e.setXray(on),
 
-    // ── Kamera & Proyeksi Spasial
-    view: (name: string) => e.view(name),
-    focus: (idOrName: string) => e.focus(idOrName),
+    // ── Kamera Animatif & Shot Sinematik
+    view: (name: string, o?: { duration?: number; distance?: number }) => e.view(name, o),
+    focus: (idOrName: string, o?: { duration?: number; distance?: number; azimuth?: number; elevation?: number }) =>
+      e.focus(idOrName, o),
+    orbit: (azDeg: number, elDeg: number, o?: { distance?: number; duration?: number }) => e.orbit(azDeg, elDeg, o),
     cameraMode: (mode: "orbit" | "free") => e.setCameraMode(mode),
     spin: (on = true) => e.spin(on),
     project: (x: number, y: number, z: number) => e.projectPoint([x, y, z]),
@@ -124,93 +139,179 @@ export function createBP3DApi(e: BodyPartsEngine, ctl: Ctl, log: Log) {
 
 export const BP3D_EXAMPLES = [
   {
-    name: "Eksplorasi Jantung & Pembuluh Koroner",
-    desc: "Isolasi sistem kardiovaskular BodyParts3D, sorot arteri koroner dan ventrikel.",
-    code: `// Eksplorasi kardiovaskular BodyParts3D nyata
+    name: "Shot Sinematik: Oklusi Arteri Koroner (LAD) & Infark",
+    desc: "Kamera meluncur ke apeks jantung, meredupkan toraks, dan pinpoint highlight oklusi LAD berdenyut.",
+    code: `// Shot Sinematik: Oklusi Arteri Koroner (LAD) & Infark Miokard
+anatomy.unhighlight();
+anatomy.isolate(null);
+anatomy.clip(null);
+
 anatomy.showAll();
 anatomy.layer('integumentary', { visible: false });
 anatomy.layer('muscular', { visible: false });
 anatomy.layer('skeletal', { opacity: 0.15 });
 
-anatomy.view('front');
-log('Memfokuskan ke organ jantung (BodyParts3D)...');
-anatomy.focus('heart');
-anatomy.highlight(['heart', 'cardiac']);
-await sleep(2000);
+log('1. Memulai penerbangan kamera dari jarak jauh ke rongga dada...');
+await anatomy.view('front', { duration: 1000, distance: 3.2 });
+await sleep(600);
 
-anatomy.view('three-quarter');
-log('Menampilkan percabangan arteri pulmonalis dan aorta...');
-await sleep(2500);`,
+log('2. Kamera swoop-in cepat dan glide ke organ jantung...');
+await anatomy.focus('heart', { duration: 1500, distance: 0.95, azimuth: 25, elevation: 12 });
+
+log('3. Pinpoint highlight pada percabangan arteri koroner desenden anterior kiri (LAD)...');
+await anatomy.pinpoint('anterior interventricular', {
+  label: 'Oklusi Akut LAD ("The Widow Maker")',
+  severity: 3,
+  duration: 1200,
+  distance: 0.45
+});
+
+log('4. Kamera melakukan orbital sweep mengelilingi miokardium yang iskemia...');
+await anatomy.orbit(65, 14, { duration: 2500, distance: 0.55 });
+await sleep(800);
+
+log('5. Pinpoint highlight kedua pada dinding anterior bilik kiri...');
+await anatomy.pinpoint('left ventricle', {
+  label: 'Zona Iskemia Transmural Dinding Anterior',
+  severity: 3,
+  duration: 1000
+});
+
+await anatomy.orbit(20, 8, { duration: 2000, distance: 0.7 });
+log('Visualisasi oklusi koroner selesai.');`,
   },
   {
-    name: "Penguraian Spasial 2.234 Struktur",
-    desc: "Urai seluruh potongan scan medis ke dalam grid spasial 3D (exploded view).",
-    code: `// Penguraian spasial (Exploded View)
-anatomy.showAll();
-anatomy.layer('integumentary', { visible: false });
-anatomy.view('front');
+    name: "Shot Sinematik: Saraf Kranial & Kiasma Optikum",
+    desc: "Kamera menyelam masuk ke kranium, isolasi persarafan visual dan sela tursika.",
+    code: `// Shot Sinematik: Saraf Kranial & Kiasma Optikum
+anatomy.unhighlight();
+anatomy.isolate(null);
+anatomy.clip(null);
 
-log('Mengurai 2.234 struktur anatomi...');
-for (let f = 0; f <= 1; f += 0.05) {
-  anatomy.explode(f);
-  await sleep(60);
-}
-
-await sleep(3500);
-log('Mengembalikan struktur ke posisi anatomis utuh...');
-for (let f = 1; f >= 0; f -= 0.05) {
-  anatomy.explode(f);
-  await sleep(60);
-}`,
-  },
-  {
-    name: "Inspeksi Saraf & Dasar Tengkorak",
-    desc: "Fokus ke kepala, isolasi sistem saraf, dan potong bidang koronal.",
-    code: `// Saraf & Dasar Tengkorak
 anatomy.hideAll();
 anatomy.layer('nervous', { visible: true, opacity: 1 });
-anatomy.layer('skeletal', { visible: true, opacity: 0.3 });
+anatomy.layer('sensory', { visible: true, opacity: 1 });
+anatomy.layer('skeletal', { visible: true, opacity: 0.25 });
 
-anatomy.view('front');
-anatomy.focus('brain');
-log('Memeriksa hemisfer serebri dan saraf kranial...');
-await sleep(2500);
+log('1. Mengarahkan kamera ke kubah tengkorak...');
+await anatomy.view('front', { duration: 900, distance: 1.8 });
 
-log('Mengaktifkan potongan sagital melintasi garis tengah...');
-anatomy.clip('x', 0, false);
-await sleep(3000);
-anatomy.clip(null);`,
+log('2. Kamera meluncur masuk ke dasar kranium anterior...');
+await anatomy.focus('optic nerve', { duration: 1500, distance: 0.38, elevation: 22, azimuth: 15 });
+
+log('3. Pinpoint highlight pada Kiasma Optikum (persilangan serabut nasal penglihatan)...');
+await anatomy.pinpoint('optic chiasm', {
+  label: 'Kiasma Optikum (N. II)',
+  severity: 2,
+  duration: 1200,
+  distance: 0.22
+});
+await sleep(1000);
+
+log('4. Rotasi orbital 360 derajat mengelilingi sela tursika...');
+await anatomy.orbit(-80, 28, { duration: 2800, distance: 0.3 });
+
+log('5. Pinpoint highlight pada pangkal nervus trigeminus (CN V)...');
+await anatomy.pinpoint('trigeminal nerve', {
+  label: 'Radiks Sensorik & Motorik N. Trigeminus (CN V)',
+  severity: 1,
+  duration: 1000
+});`,
   },
   {
-    name: "Penerbangan Bebas (Free Cam) Toraks",
-    desc: "Beralih ke Free Cam untuk terbang bebas di dalam rongga dada.",
-    code: `// Penerbangan Bebas (Free Cam)
-anatomy.layer('integumentary', { visible: false });
-anatomy.layer('muscular', { opacity: 0.2 });
-anatomy.view('front');
+    name: "Shot Sinematik: Hernia Diskus Lumbal & Radiks Saraf",
+    desc: "Kamera meluncur ke punggung bawah, potong sagital aktif, dan pinpoint jepitan saraf.",
+    code: `// Shot Sinematik: Hernia Diskus Lumbal & Saraf Iskiadikus
+anatomy.unhighlight();
+anatomy.isolate(null);
 
-log('Beralih ke mode Free Cam (Kamera Terbang Bebas)...');
-anatomy.cameraMode('free');
-log('Gunakan tombol WASD untuk bergerak dan drag mouse untuk melihat sekeliling.');`,
-  },
-  {
-    name: "Potongan Aksial & Sagital Tubuh",
-    desc: "Demonstrasi potongan bidang radiologi CT/MRI pada tubuh nyata.",
-    code: `// Potongan Bidang Radiologi
 anatomy.showAll();
 anatomy.layer('integumentary', { visible: false });
-anatomy.view('three-quarter');
+anatomy.layer('muscular', { opacity: 0.2 });
 
-log('Potongan Aksial setinggi T4 (arkus aorta)...');
-anatomy.clip('y', 1.25, false);
-await sleep(3000);
+log('1. Kamera meluncur memutar ke punggung belakang...');
+await anatomy.view('back', { duration: 1200, distance: 2.4 });
+await sleep(500);
 
-log('Potongan Sagital melintasi septum jantung...');
+log('2. Menyelam ke segmen lumbal L4-L5 dan sakrum...');
+await anatomy.focus('lumbar vertebra', { duration: 1400, distance: 0.65, azimuth: 165, elevation: 8 });
+
+log('3. Mengaktifkan potongan sagital tepat pada kanalis spinalis...');
 anatomy.clip('x', 0, false);
-await sleep(3000);
+await sleep(1500);
 
+log('4. Pinpoint highlight pada radiks saraf lumbal tertekan (HNP)...');
+await anatomy.pinpoint('lumbar', {
+  label: 'Hernia Diskus Intervertebralis L4-L5 (Penekanan Saraf)',
+  severity: 3,
+  duration: 1200,
+  distance: 0.35
+});
+
+await anatomy.orbit(195, 12, { duration: 2200, distance: 0.4 });
+await sleep(1500);
 anatomy.clip(null);
 log('Potongan bidang dinonaktifkan.');`,
+  },
+  {
+    name: "Shot Sinematik: Navigasi Bebas (Free Cam Flight)",
+    desc: "Beralih ke Free Cam untuk terbang bebas melintasi rongga mediastinum dan abdomen.",
+    code: `// Shot Sinematik: Penerbangan Bebas (Free Cam Flight)
+anatomy.unhighlight();
+anatomy.isolate(null);
+anatomy.showAll();
+anatomy.layer('integumentary', { visible: false });
+anatomy.layer('muscular', { opacity: 0.15 });
+anatomy.layer('skeletal', { opacity: 0.3 });
+
+log('1. Mengarahkan posisi awal penerbangan ke depan toraks...');
+await anatomy.view('front', { duration: 1000, distance: 1.6 });
+
+log('2. Mengaktifkan Mode Free Cam (Kamera Terbang Bebas)...');
+anatomy.cameraMode('free');
+
+log('3. Kontrol aktif:');
+log('   • W/S : Terbang Maju / Mundur');
+log('   • A/D : Geser Kiri / Kanan');
+log('   • Space/Shift : Naik / Turun');
+log('   • Drag Mouse : Mengarahkan pandangan 360°');`,
+  },
+  {
+    name: "Shot Sinematik: Penguraian Spasial 2.234 Model",
+    desc: "Kamera dolly-out ke sudut isometrik, mengurai ribuan struktur dan pinpoint organ inti.",
+    code: `// Shot Sinematik: Penguraian Spasial 2.234 Model (Exploded Inventory)
+anatomy.unhighlight();
+anatomy.isolate(null);
+anatomy.showAll();
+anatomy.layer('integumentary', { visible: false });
+
+log('1. Kamera dolly-out ke sudut pandang isometrik elevated...');
+await anatomy.view('three-quarter', { duration: 1200, distance: 4.8 });
+
+log('2. Memulai proses penguraian spasial 2.234 struktur scan medis...');
+for (let f = 0; f <= 1; f += 0.04) {
+  anatomy.explode(f);
+  await sleep(40);
+}
+
+await sleep(1500);
+log('3. Pinpoint highlight jantung yang mengambang dalam grid spasial...');
+await anatomy.pinpoint('heart', {
+  label: 'Organ Jantung (Terurai)',
+  severity: 1,
+  duration: 1200,
+  distance: 1.2
+});
+
+await sleep(2000);
+log('4. Mengembalikan seluruh struktur anatomi ke posisi utuh semula...');
+await anatomy.view('front', { duration: 1000, distance: 3.5 });
+for (let f = 1; f >= 0; f -= 0.04) {
+  anatomy.explode(f);
+  await sleep(40);
+}
+
+log('Model anatomi telah terakit utuh kembali.');`,
   },
 ];
 
@@ -223,22 +324,45 @@ export function buildBP3DAiPrompt(e: BodyPartsEngine): string {
   ).join("\n");
 
   return `### IDENTITAS SISTEM ANATOMI MEDIS
-Nama Aplikasi: ANATOMI — Scan Medis 3D
+Nama Aplikasi: ANATOMI — Scan Medis 3D (BodyParts3D)
 Karya: Ardellio Satria Anindito
 Basis Data: BodyParts3D 4.0 (The Database Center for Life Science, Japan / CC BY 4.0)
 Total Model: ${partsCount} struktur hasil scan medis nyata yang tersegmentasi secara individual.
 Total Konsep FMA: ${conceptsCount} konsep ontologi anatomi (Foundational Model of Anatomy).
 
-### PERAN AGEN AI
-Anda adalah asisten spesialis visualisasi anatomi 3D dan navigasi spasial tubuh manusia.
-Tulis HANYA kode JavaScript yang valid (atau format JSON anatomy.exec jika diminta) yang berinteraksi langsung dengan objek runtime global "window.anatomy".
+### PERAN ANDA
+Anda adalah sutradara visualisasi medis & asisten anatomi komputasional.
+Tulis HANYA kode JavaScript yang valid (atau format JSON anatomy.exec jika diminta) yang mengendalikan objek runtime global "window.anatomy".
+
+### PRINSIP SINEMATIK & PINPOINT HIGHLIGHTING:
+1. JANGAN HANYA MENYOROT ORGAN SECARA LUAS:
+   Gunakan fungsi "anatomy.pinpoint(target, { label, severity, duration, distance })" untuk menyorot secara mikro presisi, menancapkan pulsing pin 3D berdenyut, dan mengarahkan kamera swoop-in close-up dramatis ke titik patologis!
+2. CHOREOGRAFI KAMERA ANIMATIF:
+   Gunakan kombinasi "anatomy.view()", "anatomy.focus()", "anatomy.orbit()", dan "anatomy.cameraTo()" dengan parameter { duration, distance, azimuth, elevation } agar kamera meluncur dengan mulus (smooth easeInOut), bukan berpindah patah-patah!
+3. NAVIGASI FREE CAM (TERBANG BEBAS):
+   Beralihlah ke "anatomy.cameraMode('free')" saat mendemonstrasikan eksplorasi rongga dalam tubuh (toraks, kranium, abdomen).
+4. POTONGAN RADIOLOGIS REAL-TIME:
+   Gunakan "anatomy.clip('x'|'y'|'z', pos, flip)" untuk membelah tubuh pada bidang sagital, aksial, atau koronal saat menginspeksi organ dalam.
 
 ### DAFTAR 15 SISTEM ANATOMI YANG TERSEDIA:
 ${sysList}
 
-### DOKUMENTASI API WINDOW.ANATOMY (BODYPARTS3D):
-IDENTIFIKASI & SELEKSI
-  anatomy.select(partId | null)                 → Memilih dan menyorot struktur spesifik
+### DOKUMENTASI LENGKAP API WINDOW.ANATOMY (BODYPARTS3D):
+KAMERA SINEMATIK & PROYEKSI INPUT
+  await anatomy.view('front'|'back'|'left'|'right'|'top'|'bottom'|'iso', {duration?, distance?})
+  await anatomy.focus(idOrName, {duration?, distance?, azimuth?, elevation?})
+  await anatomy.orbit(azimuthDeg, elevationDeg, {distance?, duration?})
+  await anatomy.cameraTo(azRad, elRad, dist, [x,y,z], durationMs)
+  anatomy.cameraMode('orbit' | 'free')          → Beralih ke Orbit Cam atau Free Cam (WASD fly cam)
+  anatomy.spin(true | false)                    → Putaran rotasi kontinu
+  anatomy.project(x, y, z)                      → Proyeksi titik 3D meter ke 2D piksel layar {x, y, visible}
+  anatomy.identify(screenX, screenY)            → Raycasting dari layar ke organ 3D
+  anatomy.snapshot()                            → Menghasilkan gambar PNG data URL
+
+PINPOINT HIGHLIGHT & SELEKSI
+  await anatomy.pinpoint(idOrName, {point?: [x,y,z], label?, severity?: 1|2|3, duration?, distance?, pulse?: true})
+      → Menyorot target secara mikro, kamera meluncur mendekat, menancapkan pin 3D berdenyut.
+  anatomy.select(partId | null)                 → Memilih dan menyorot struktur
   anatomy.highlight(ids, {color?, dim?})        → Menyorot array ID dengan efek glow
   anatomy.unhighlight()                         → Menghapus seluruh sorotan
   anatomy.isolate(partId | null)                → Mengisolasi struktur (menyembunyikan yang lain)
@@ -250,23 +374,16 @@ KONTROL LAYER 15 SISTEM
   anatomy.layer(systemId, {visible?, opacity?}) → Mengatur keterlihatan dan transparansi sistem
   anatomy.showAll() / anatomy.hideAll()
 
-PENGURAIAN & POTONGAN RADIOLOGIS
+PENGURAIAN SPASIAL & POTONGAN RADIOLOGIS
   anatomy.explode(factor: 0..1)                 → Mengurai seluruh 2.234 model ke dalam ruang spasial
   anatomy.clip('x'|'y'|'z'|null, pos, flip?)    → Potongan sagital (x), aksial (y), koronal (z)
   anatomy.xray(true | false)                    → Mode rontgen transparan
 
-KAMERA & PROYEKSI INPUT
-  anatomy.cameraMode('orbit' | 'free')          → Beralih antara Orbit Cam dan Free Cam (WASD fly cam)
-  anatomy.view('front'|'back'|'left'|'right'|'top'|'bottom'|'iso')
-  anatomy.focus(idOrName)                       → Mengarahkan kamera dan zoom ke organ target
-  anatomy.spin(true | false)                    → Putaran otomatis
-  anatomy.project(x, y, z)                      → Memproyeksikan titik 3D meter ke koordinat layar 2D
-  anatomy.identify(screenX, screenY)            → Raycasting dari layar ke organ 3D
-  anatomy.snapshot()                            → Menghasilkan gambar PNG data URL
-
 PENANDAAN & INPUT KLINIS
   anatomy.mark([x, y, z], label, severity)      → Menancapkan pin gejala 3D pada permukaan organ
   anatomy.unmark(id) / anatomy.clearMarks()
+  await sleep(ms)                               → Jeda durasi antar adegan sinematik
+  log(...args)                                  → Menuliskan pesan ke konsol output
 
 Selalu awali skrip dengan:
   anatomy.unhighlight();

@@ -5,6 +5,7 @@ import type { AnatomyEngine } from "@/anatomy/engine";
 import type { BodyPartsEngine } from "@/anatomy/bodyparts3d/engine";
 import { API_DOC, EXAMPLES, buildAiPrompt, runScript } from "@/anatomy/script";
 import { BP3D_EXAMPLES, buildBP3DAiPrompt, createBP3DApi } from "@/anatomy/bodyparts3d/script";
+import { deleteClientScript, getClientScripts, saveClientScript } from "@/lib/client-data";
 import type { SavedScript, ViewMode } from "./types";
 
 interface LogLine {
@@ -52,10 +53,15 @@ export default function ScriptTab({
   }, [mode]);
 
   const loadSaved = useCallback(() => {
-    fetch("/api/scripts")
-      .then((r) => r.json())
-      .then((rows: SavedScript[]) => setSaved(rows))
-      .catch(() => undefined);
+    const rows = getClientScripts();
+    setSaved(
+      rows.map((r) => ({
+        id: r.id,
+        name: r.title,
+        code: r.code,
+        createdAt: r.createdAt,
+      }))
+    );
   }, []);
 
   useEffect(loadSaved, [loadSaved]);
@@ -120,19 +126,13 @@ export default function ScriptTab({
   const save = async () => {
     const n = name.trim();
     if (!n) return;
-    const res = await fetch("/api/scripts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: n, code }),
-    });
-    if (res.ok) {
-      setName("");
-      loadSaved();
-    }
+    saveClientScript(n, code);
+    setName("");
+    loadSaved();
   };
 
   const remove = async (id: number) => {
-    await fetch(`/api/scripts?id=${id}`, { method: "DELETE" });
+    deleteClientScript(id);
     loadSaved();
   };
 
@@ -156,74 +156,75 @@ export default function ScriptTab({
 
   const PROMPT_TEMPLATES_SIM = [
     {
-      title: "Serangan Jantung & Arteri Koroner",
-      prompt: `Buatkan skrip ANATOMI untuk memvisualisasikan infark miokard akut (serangan jantung):
-- Mulai dengan reset model
-- Samarkan rangka dan sembunyikan kulit
-- Sorot jantung dan arteri koroner (LAD, RCA, LCx)
-- Dekatkan kamera dan fokus pada bilik kiri (left-ventricle)
-- Jalankan detak jantung 75 bpm
-- Kedipkan anterior-interventricular-artery (LAD) warna merah
-- Beri penanda pada LAD: 'Oklusi LAD ("The Widow Maker")' dan pada left-ventricle: 'Iskemia dinding anterior'
-- Putar kamera mengorbit secara perlahan`,
+      title: "Shot Sinematik: Oklusi LAD & Infark Akut",
+      prompt: `Buatkan skrip ANATOMI (Simulasi) sinematik untuk mendemonstrasikan serangan jantung akut:
+- Kamera swooping-in cepat dari wide shot ke apeks jantung (duration 1400ms, distance 0.95m)
+- Samarkan rangka ke opasitas 0.15 dan sembunyikan kulit
+- Aktifkan detak jantung ritmis 76 bpm
+- Lakukan pinpoint highlight mikro pada percabangan anterior-interventricular-artery (LAD) dengan severity 3 dan label 'Oklusi LAD ("The Widow Maker")'
+- Putar kamera orbital 65 derajat mengelilingi miokardium yang iskemia
+- Pinpoint dinding anterior bilik kiri (left-ventricle) untuk menunjukkan area infark transmural
+- Sertakan log penjelasan klinis interaktif di setiap transisi`,
     },
     {
-      title: "Saraf Kejepit (HNP) & Ischialgia",
-      prompt: `Buatkan skrip ANATOMI untuk memvisualisasikan hernia nukleus pulposus (HNP) L4-L5:
-- Mulai dengan reset model
-- Tampilkan tulang belakang dan saraf
-- Isolasi ruas lumbal, sakrum, diskus L4-L5, dan nervus iskiadikus
-- Sorot disc-L4-L5 dengan warna merah dan sciatic-nerve dengan warna kuning
-- Arahkan kamera ke punggung bawah (azimuth 160)
-- Beri penanda 'Diskus L4–L5 menekan radiks saraf' dan 'Nyeri menjalar sepanjang tungkai'
-- Kedipkan diskus yang bermasalah`,
+      title: "Shot Sinematik: Saraf Kejepit HNP L4-L5 & Ischialgia",
+      prompt: `Buatkan skrip ANATOMI (Simulasi) sinematik untuk visualisasi hernia nukleus pulposus:
+- Kamera meluncur halus ke punggung belakang bawah (azimuth 165, elevation 8)
+- Aktifkan potongan sagital melintasi kanalis spinalis (anatomy.clip('x', 0, false))
+- Pinpoint highlight diskus L4-L5 yang mengalami herniasi dengan severity 3
+- Pinpoint highlight radiks nervus iskiadikus yang mengalami kompresi saraf
+- Lakukan orbital camera sweep 195 derajat memperlihatkan penjalaran rasa sakit ke tungkai
+- Nonaktifkan potongan bidang dan kembalikan tampilan utuh`,
     },
     {
-      title: "Kranium & Saraf Kranial",
-      prompt: `Buatkan skrip ANATOMI untuk mendemonstrasikan kranium dan persarafan kepala:
-- Reset model dan fokus ke kepala
-- Sorot frontal-bone, parietal-bone, temporal-bone, occipital-bone
-- Tampilkan dan sorot optic-nerve (CN II) dan trigeminal-nerve (CN V)
-- Tunjukkan posisi kelenjar hipofisis (pituitary-gland) di sela tursika
-- Tambahkan label penjelasan pada saraf optik dan hipofisis
-- Lakukan orbit kamera 360 derajat mengelilingi kepala`,
+      title: "Shot Sinematik: Refleks Patela & Biomekanika Genu",
+      prompt: `Buatkan skrip ANATOMI (Simulasi) sinematik untuk demonstrasi busur refleks monosinaptik:
+- Kamera meluncur fokus ke sendi lutut kiri (patella.L) dari sudut anterolateral
+- Pinpoint highlight pada ligamen patela (patellar-ligament.L) sebagai titik stimulus refleks
+- Simulasikan ketukan palu refleks dan gerakan ekstensi sendi lutut berulang (anatomy.joint)
+- Sorot inervasi nervus femoralis segmen L2-L4`,
+    },
+    {
+      title: "Shot Sinematik: Kranium & Kiasma Optikum",
+      prompt: `Buatkan skrip ANATOMI (Simulasi) sinematik untuk eksplorasi saraf kranial:
+- Kamera menyelam masuk ke dasar kranium anterior
+- Pinpoint highlight pada kiasma optikum (optic-nerve.L) dan kelenjar hipofisis
+- Lakukan orbit kamera 360 derajat halus mengelilingi sela tursika`,
     },
   ];
 
   const PROMPT_TEMPLATES_BP3D = [
     {
-      title: "Eksplorasi Jantung & Pembuluh Koroner FMA",
-      prompt: `Buatkan skrip ANATOMI (BodyParts3D) untuk mengeksplorasi sistem kardiovaskular:
-- Tampilkan seluruh lapisan, sembunyikan kulit dan otot
-- Samarkan rangka dengan opasitas 0.15
-- Fokuskan kamera ke jantung (heart)
-- Sorot jantung dan cabang arteri koroner
-- Lakukan orbit kamera halus mengelilingi organ jantung`,
+      title: "Shot Sinematik: Oklusi Arteri Koroner (LAD) BP3D",
+      prompt: `Buatkan skrip ANATOMI (BodyParts3D) sinematik untuk memvisualisasikan oklusi arteri koroner pada 2.234 model scan medis:
+- Sembunyikan lapisan kulit dan otot, samarkan rangka ke opasitas 0.15
+- Kamera glide swooping-in dari tampak depan ke organ jantung
+- Lakukan pinpoint highlight mikro pada cabang anterior interventricular (LAD) dengan pin 3D berdenyut merah
+- Lakukan orbital camera sweep mengelilingi apeks miokardium
+- Pinpoint bilik kiri (left ventricle) untuk memperlihatkan jaringan yang mengalami iskemia`,
     },
     {
-      title: "Penguraian Spasial 2.234 Model (Exploded View)",
-      prompt: `Buatkan skrip ANATOMI (BodyParts3D) untuk mendemonstrasikan penguraian spasial:
-- Tampilkan seluruh 15 sistem anatomi
-- Sembunyikan lapisan kulit
-- Animasikan slider explode dari 0% hingga 100% secara bertahap
-- Jeda selama 3 detik untuk inspeksi
-- Kembalikan seluruh model ke posisi utuh (explode 0%)`,
+      title: "Shot Sinematik: Saraf Kranial & Sela Tursika BP3D",
+      prompt: `Buatkan skrip ANATOMI (BodyParts3D) sinematik untuk diseksi intrakranial:
+- Isolasi sistem saraf (nervous) dan organ sensorik (sensory) dengan rangka samar
+- Kamera meluncur masuk ke dalam kranium (distance 0.38m)
+- Pinpoint highlight kiasma optikum (optic chiasm) dan nervus trigeminus (trigeminal nerve)
+- Orbit kamera 360 derajat mengelilingi dasar fossa kranial`,
     },
     {
-      title: "Penerbangan Bebas (Free Cam) Toraks & Abdomen",
-      prompt: `Buatkan skrip ANATOMI (BodyParts3D) untuk navigasi rongga dalam:
-- Sembunyikan kulit dan samarkan otot
+      title: "Shot Sinematik: Penguraian Spasial 2.234 Model (Exploded)",
+      prompt: `Buatkan skrip ANATOMI (BodyParts3D) sinematik untuk mendemonstrasikan penguraian spasial:
+- Dolly-out kamera ke sudut pandang isometrik elevated (distance 4.8m)
+- Urai 2.234 potongan anatomi dari explode 0 ke 1 secara bertahap
+- Pinpoint highlight organ jantung dan otak yang mengambang di ruang terbuka
+- Kembalikan seluruh model ke posisi anatomis utuh semula`,
+    },
+    {
+      title: "Shot Sinematik: Navigasi Bebas (Free Cam Flight)",
+      prompt: `Buatkan skrip ANATOMI (BodyParts3D) sinematik untuk mendemonstrasikan penerbangan kamera first-person:
 - Beralih ke kamera terbang bebas: anatomy.cameraMode('free')
-- Terbang masuk melintasi sela iga ke dalam mediastinum`,
-    },
-    {
-      title: "Potongan Aksial & Sagital CT/MRI",
-      prompt: `Buatkan skrip ANATOMI (BodyParts3D) untuk pemotongan bidang radiologis:
-- Tampilkan seluruh sistem
-- Lakukan potongan aksial setinggi arkus aorta: anatomy.clip('y', 1.25)
-- Jeda 3 detik
-- Beralih ke potongan sagital melintasi garis tengah: anatomy.clip('x', 0)
-- Matikan potongan: anatomy.clip(null)`,
+- Terbang melintasi sela iga anterior langsung ke dalam mediastinum di belakang sternum
+- Inspeksi arkus aorta dan bifurkasio trakea dari jarak dekat`,
     },
   ];
 

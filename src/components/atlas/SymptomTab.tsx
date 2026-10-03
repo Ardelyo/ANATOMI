@@ -5,6 +5,7 @@ import type { AnatomyEngine } from "@/anatomy/engine";
 import type { BodyPartsEngine } from "@/anatomy/bodyparts3d/engine";
 import { metaFor } from "@/anatomy/catalog";
 import ConditionCard from "./ConditionCard";
+import { clientDiagnose } from "@/lib/client-data";
 import { SEVERITY_STYLE, type Annotation, type Condition, type DiagnoseHit, type Symptom, type ViewMode } from "./types";
 
 export interface PendingMark {
@@ -65,14 +66,21 @@ export default function SymptomTab({
     if (chosen.length === 0) return;
     const t = setTimeout(() => {
       setBusy(true);
-      fetch("/api/diagnose", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symptoms: chosen }) })
-        .then((r) => r.json())
-        .then((d: { results: DiagnoseHit[] }) => setHits(d.results))
+      clientDiagnose(chosen)
+        .then((scored) => {
+          setHits(
+            scored.map((r) => ({
+              ...r,
+              matched: r.matched.map((m) => ({ slug: m.slug, label: labels.get(m.slug) ?? m.slug })),
+              missing: r.missing.map((m) => ({ slug: m.slug, label: labels.get(m.slug) ?? m.slug })),
+            }))
+          );
+        })
         .catch(() => setHits([]))
         .finally(() => setBusy(false));
-    }, 220);
+    }, 150);
     return () => clearTimeout(t);
-  }, [chosen]);
+  }, [chosen, labels]);
 
   const toggle = (slug: string) => {
     setOpenSlug(null);

@@ -185,7 +185,9 @@ export class BodyPartsEngine {
 
   // ───────────── GEOMETRY & ATLAS LOADING ─────────────
   public async loadAtlas(atlasUrl = "/models/atlas.json") {
-    const res = await fetch(atlasUrl);
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+    const cleanAtlasUrl = atlasUrl.startsWith("/") ? `${basePath}${atlasUrl}` : atlasUrl;
+    const res = await fetch(cleanAtlasUrl);
     if (!res.ok) throw new Error("Gagal mengambil atlas.json");
     this.atlas = (await res.json()) as BP3DAtlas;
 
@@ -282,7 +284,10 @@ export class BodyPartsEngine {
     if (!this.atlas) return;
     const chunk = this.atlas.chunks[ci];
     const isGzip = Boolean(chunk.gzip && typeof DecompressionStream !== "undefined");
-    const res = await fetch(isGzip ? chunk.gzip! : chunk.url);
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+    const rawPath = isGzip ? chunk.gzip! : chunk.url;
+    const cleanPath = rawPath.startsWith("/") ? `${basePath}${rawPath}` : rawPath;
+    const res = await fetch(cleanPath);
     const buffer = await decodeModelResponse(res, chunk.bytes, isGzip);
     if (this.disposed) return;
 
@@ -459,6 +464,69 @@ export class BodyPartsEngine {
   }
 
   // ───────────── KONTROL KAMERA ─────────────
+  private camSpherical() {
+    const off = this.camera.position.clone().sub(this.orbitControls.target);
+    const dist = off.length();
+    return {
+      az: Math.atan2(off.x, off.z),
+      el: Math.asin(Math.max(-1, Math.min(1, off.y / (dist || 1)))),
+      dist,
+    };
+  }
+
+  private placeCamera(az: number, el: number, dist: number, target: THREE.Vector3) {
+    this.orbitControls.target.copy(target);
+    this.camera.position.set(
+      target.x + dist * Math.cos(el) * Math.sin(az),
+      target.y + dist * Math.sin(el),
+      target.z + dist * Math.cos(el) * Math.cos(az),
+    );
+    this.camera.lookAt(target);
+    this.orbitControls.update();
+  }
+
+  public cameraTo(az: number, el: number, dist: number, target: THREE.Vector3, durationMs = 1000): Promise<void> {
+    if (this.cameraMode === "free") this.setCameraMode("orbit");
+    this.orbitControls.autoRotate = false;
+    this.spinning = false;
+
+    const s = this.camSpherical();
+    const t0 = this.orbitControls.target.clone();
+    let dAz = az - s.az;
+    dAz = Math.atan2(Math.sin(dAz), Math.cos(dAz));
+
+    if (durationMs <= 0) {
+      this.placeCamera(az, el, dist, target);
+      this.dirty = true;
+      this.emitCamera();
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      const start = performance.now();
+      const tick = () => {
+        if (this.disposed) return resolve();
+        const now = performance.now();
+        const elapsed = now - start;
+        const rawT = Math.min(1, elapsed / durationMs);
+        // Easing in-out quad
+        const k = rawT < 0.5 ? 2 * rawT * rawT : -1 + (4 - 2 * rawT) * rawT;
+
+        const tg = t0.clone().lerp(target, k);
+        this.placeCamera(s.az + dAz * k, s.el + (el - s.el) * k, s.dist + (dist - s.dist) * k, tg);
+        this.dirty = true;
+        this.emitCamera();
+
+        if (rawT < 1) {
+          requestAnimationFrame(tick);
+        } else {
+          resolve();
+        }
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
   public setCameraMode(mode: BP3DCameraMode) {
     if (this.cameraMode === mode) return;
     this.cameraMode = mode;
@@ -475,68 +543,147 @@ export class BodyPartsEngine {
     this.emit("change");
   }
 
-  public view(name: BP3DView | string) {
+  public view(name: BP3DView | string, o: { duration?: number; distance?: number } = {}): Promise<void> {
     if (this.cameraMode === "free") this.setCameraMode("orbit");
-    const target = this.orbitControls.target;
-    const distance = this.camera.position.distanceTo(target) || 3.6;
+    const dur = o.duration ?? 900;
+    const dist = o.distance ?? 3.6;
+    const target = this.orbitControls.target.clone();
 
-    const dir = new THREE.Vector3();
+    let az = 0.35;
+    let el = 0.06;
+
     switch (name) {
       case "front":
       case "depan":
-        dir.set(0, 0.02, 1);
+        az = 0;
+        el = 0.02;
         break;
       case "back":
       case "belakang":
-        dir.set(0, 0.02, -1);
+        az = Math.PI;
+        el = 0.02;
         break;
       case "left":
       case "kiri":
-        dir.set(-1, 0.02, 0);
+        az = -Math.PI / 2;
+        el = 0.02;
         break;
       case "right":
       case "side":
       case "kanan":
-        dir.set(1, 0.02, 0);
+        az = Math.PI / 2;
+        el = 0.02;
         break;
       case "top":
       case "atas":
-        dir.set(0, 1, 0.01);
+        az = 0;
+        el = Math.PI / 2 - 0.05;
         break;
       case "bottom":
       case "bawah":
-        dir.set(0, -1, 0.01);
+        az = 0;
+        el = -Math.PI / 2 + 0.05;
         break;
       case "three-quarter":
       case "iso":
       default:
-        dir.set(0.35, 0.06, 1).normalize();
+        az = 0.55;
+        el = 0.16;
         break;
     }
 
-    this.camera.position.copy(target).addScaledVector(dir.normalize(), distance);
-    this.orbitControls.update();
-    this.dirty = true;
-    this.emitCamera();
+    return this.cameraTo(az, el, dist, target, dur);
   }
 
-  public focus(idOrName: string) {
-    if (!this.atlas) return;
+  public focus(
+    idOrName: string,
+    o: { duration?: number; distance?: number; azimuth?: number; elevation?: number } = {},
+  ): Promise<void> {
+    if (!this.atlas) return Promise.resolve();
     const p = this.atlas.parts.find(
-      (part) => part.id === idOrName || part.conceptId === idOrName || part.name.toLowerCase().includes(idOrName.toLowerCase()),
+      (part) =>
+        part.id === idOrName ||
+        part.conceptId === idOrName ||
+        part.name.toLowerCase().includes(idOrName.toLowerCase()),
     );
-    if (!p) return;
+    if (!p) return Promise.resolve();
 
     const center = new THREE.Vector3().fromArray(p.bounds[0]).add(new THREE.Vector3().fromArray(p.bounds[1])).multiplyScalar(0.5);
     const size = new THREE.Vector3().fromArray(p.bounds[1]).sub(new THREE.Vector3().fromArray(p.bounds[0])).length();
-    const dist = Math.max(0.3, size * 2.2);
+    const dist = o.distance ?? Math.max(0.25, size * 2.2);
 
-    this.orbitControls.target.copy(center);
-    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.camera.quaternion);
-    this.camera.position.copy(center).addScaledVector(forward, dist);
-    this.orbitControls.update();
-    this.dirty = true;
-    this.emitCamera();
+    const s = this.camSpherical();
+    const az = o.azimuth !== undefined ? THREE.MathUtils.degToRad(o.azimuth) : s.az;
+    const el = o.elevation !== undefined ? THREE.MathUtils.degToRad(o.elevation) : s.el;
+
+    return this.cameraTo(az, el, dist, center, o.duration ?? 1000);
+  }
+
+  public orbit(azDeg: number, elDeg: number, o: { distance?: number; duration?: number } = {}): Promise<void> {
+    const s = this.camSpherical();
+    return this.cameraTo(
+      THREE.MathUtils.degToRad(azDeg),
+      THREE.MathUtils.degToRad(elDeg),
+      o.distance ?? s.dist,
+      this.orbitControls.target.clone(),
+      o.duration ?? 1000,
+    );
+  }
+
+  /**
+   * PINPOINT HIGHLIGHT:
+   * Menyorot target secara presisi mikro (bukan hanya melihat organ secara luas),
+   * mengarahkan kamera swoop-in close-up dramatis, menancapkan pulsing pin 3D berdenyut,
+   * meredupkan struktur lain, dan menghasilkan visual diagnostik klinis tingkat tinggi.
+   */
+  public async pinpoint(
+    idOrName: string,
+    o: {
+      point?: [number, number, number];
+      label?: string;
+      severity?: number;
+      duration?: number;
+      distance?: number;
+      pulse?: boolean;
+    } = {},
+  ): Promise<{ id: string; partId: string; point: [number, number, number] } | null> {
+    if (!this.atlas) return null;
+    const p = this.atlas.parts.find(
+      (part) =>
+        part.id === idOrName ||
+        part.conceptId === idOrName ||
+        part.name.toLowerCase().includes(idOrName.toLowerCase()),
+    );
+    if (!p) return null;
+
+    const center = new THREE.Vector3().fromArray(p.bounds[0]).add(new THREE.Vector3().fromArray(p.bounds[1])).multiplyScalar(0.5);
+    const pt: [number, number, number] = o.point ?? [center.x, center.y, center.z];
+
+    this.select(p.id);
+
+    const markerId = `pinpoint_${p.id}_${Date.now()}`;
+    const sev = o.severity ?? 3;
+    const label = o.label ?? p.name;
+    this.addMarker({
+      id: markerId,
+      partId: p.id,
+      point: pt,
+      label,
+      severity: sev,
+    });
+
+    const size = new THREE.Vector3().fromArray(p.bounds[1]).sub(new THREE.Vector3().fromArray(p.bounds[0])).length();
+    const dist = o.distance ?? Math.max(0.18, size * 1.8);
+    await this.cameraTo(
+      this.camSpherical().az,
+      this.camSpherical().el,
+      dist,
+      new THREE.Vector3(...pt),
+      o.duration ?? 1200,
+    );
+
+    this.emit("pinpoint", { id: markerId, partId: p.id, point: pt, label, severity: sev });
+    return { id: markerId, partId: p.id, point: pt };
   }
 
   public spin(on = true) {
@@ -783,6 +930,15 @@ export class BodyPartsEngine {
         });
 
         this.partTexture.needsUpdate = true;
+      }
+
+      // Animasi denyut pin marker 3D klinis
+      if (this.markerMeshes.size > 0) {
+        const pulseScale = 1 + 0.3 * Math.sin(this.clock.getElapsedTime() * 6.5);
+        for (const m of this.markerMeshes.values()) {
+          m.scale.setScalar(pulseScale);
+        }
+        this.dirty = true;
       }
 
       if (this.dirty || this.cameraMode === "free" || this.spinning || moving) {

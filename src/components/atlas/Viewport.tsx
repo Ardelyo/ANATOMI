@@ -97,7 +97,7 @@ export default function Viewport({
   return (
     <div ref={boxRef} className="relative h-full w-full select-none overflow-hidden bg-white">
       <div className="pointer-events-none absolute inset-0 hatch opacity-60" />
-      <div ref={mount} className="absolute inset-0" />
+      <div ref={mount} className="absolute inset-0 touch-none" />
       <div ref={overlay} className="pointer-events-none absolute inset-0 overflow-hidden" />
 
       {!engine && !error && (
@@ -302,7 +302,11 @@ export default function Viewport({
       )}
 
       {/* Kontrol bawah */}
-      <div className="absolute inset-x-0 bottom-3 flex flex-wrap items-center justify-center gap-2 px-3">
+      <div
+        className={`absolute inset-x-0 ${
+          isZen ? "bottom-3" : "bottom-16 lg:bottom-3"
+        } z-20 flex items-center justify-start sm:justify-center gap-2 px-3 overflow-x-auto thin-scroll max-w-full pb-1`}
+      >
         {/* Sudut Pandang Kamera */}
         <div className="flex overflow-hidden rounded border border-line-strong bg-white/95 shadow-sm backdrop-blur">
           {VIEW_BUTTONS.map(([k, label], i) => (

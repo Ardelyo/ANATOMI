@@ -6,6 +6,7 @@ import type { BodyPartsEngine } from "@/anatomy/bodyparts3d/engine";
 import { SYSTEM_BY_ID, metaFor } from "@/anatomy/catalog";
 import { BP3D_SYSTEMS, type BP3DPart, type BP3DConcept } from "@/anatomy/bodyparts3d/types";
 import ConditionCard from "./ConditionCard";
+import { getClientConditions } from "@/lib/client-data";
 import { SEVERITY_STYLE, type Condition, type ViewMode } from "./types";
 
 export default function InfoTab({
@@ -47,13 +48,12 @@ export default function InfoTab({
   // Query kondisi terkait untuk Simulation mode
   useEffect(() => {
     if (mode !== "simulation" || !simPart) return;
-    const keys = [simPart.id, simPart.base, ...simPart.tags].join(",");
+    const keys = [simPart.id, simPart.base, ...simPart.tags];
     let alive = true;
-    fetch(`/api/conditions?keys=${encodeURIComponent(keys)}`)
-      .then((r) => r.json())
-      .then((items: Condition[]) => {
+    getClientConditions(keys)
+      .then((items) => {
         if (alive) {
-          setList({ key: simPart.id, items });
+          setList({ key: simPart.id, items: items as unknown as Condition[] });
           setOpen(null);
         }
       })
@@ -67,13 +67,12 @@ export default function InfoTab({
   useEffect(() => {
     if (mode !== "bodyparts3d" || !bp3dPart) return;
     const nameWords = bp3dPart.name.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
-    const keys = [bp3dPart.system, bp3dPart.name, bp3dPart.conceptId, ...nameWords].join(",");
+    const keys = [bp3dPart.system, bp3dPart.name, bp3dPart.conceptId, ...nameWords];
     let alive = true;
-    fetch(`/api/conditions?keys=${encodeURIComponent(keys)}`)
-      .then((r) => r.json())
-      .then((items: Condition[]) => {
+    getClientConditions(keys)
+      .then((items) => {
         if (alive) {
-          setList({ key: bp3dPart.id, items });
+          setList({ key: bp3dPart.id, items: items as unknown as Condition[] });
           setOpen(null);
         }
       })

@@ -1067,6 +1067,52 @@ export class AnatomyEngine {
     return this.cameraTo(s.az, s.el, Math.min(s.dist, 1.0), w, 800);
   }
 
+  /**
+   * PINPOINT HIGHLIGHT:
+   * Menyorot target secara presisi mikro, mengarahkan kamera swoop-in close-up dramatis,
+   * menancapkan pin 3D berdenyut, meredupkan struktur lain, dan menghasilkan visual diagnostik.
+   */
+  async pinpoint(
+    t: Target,
+    o: {
+      point?: [number, number, number];
+      label?: string;
+      severity?: number;
+      duration?: number;
+      distance?: number;
+      azimuth?: number;
+      elevation?: number;
+      color?: string;
+    } = {},
+  ) {
+    const ps = this.resolve(t);
+    if (ps.length === 0) return null;
+    const p = ps[0];
+    this.reveal(p);
+
+    // Sorot pinpoint dengan dim struktur lain
+    this.highlight(p.id, { color: o.color ?? "#e03030", dim: true, intensity: 0.8 });
+
+    // Tambahkan marker visual
+    const markerId = this.addMarker({
+      partId: p.id,
+      label: o.label ?? metaFor(p.id).name,
+      severity: o.severity ?? 3,
+      point: o.point,
+      always: true,
+    });
+
+    // Kamera meluncur dramatis close-up ke pinpoint target
+    await this.focus(p.id, {
+      duration: o.duration ?? 1200,
+      distance: o.distance,
+      azimuth: o.azimuth,
+      elevation: o.elevation,
+    });
+
+    return { id: markerId, partId: p.id };
+  }
+
   private updateMarkers() {
     if (this.markers.size === 0) return;
     const w = this.renderer.domElement.clientWidth;

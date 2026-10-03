@@ -1,37 +1,53 @@
 # ANATOMI
 
-> **Visualisasi Anatomi Manusia 3D Interaktif**  
-> *Buatan Ardellio Satria Anindito*
+> **Visualisasi Anatomi Manusia 3D Interaktif & Medis Komprehensif**  
+> *Buatan Ardellio Satria Anindito*  
+> 🌐 **Live Website GitHub Pages:** [https://ardelyo.github.io/ANATOMI/](https://ardelyo.github.io/ANATOMI/)  
+> 💻 **Repositori GitHub:** [https://github.com/Ardelyo/ANATOMI](https://github.com/Ardelyo/ANATOMI)
 
-ANATOMI adalah platform edukasi anatomi manusia 3D berbasis web modern yang interaktif, presisi, dan sepenuhnya responsif. Dilengkapi dengan kontrol visualisasi multi-sistem tubuh, mode layar penuh (Zen Mode), mesin skrip animasi yang dapat dikendalikan agen kecerdasan buatan (AI), serta pencocok gejala klinis berbasis data terbuka.
+ANATOMI adalah platform visualisasi anatomi manusia 3D berbasis web modern yang interaktif, presisi secara klinis, ramah perangkat mobile (smartphone/tablet), serta mendukung visualisasi dual-mode: **Mode Simulasi Kinematik** dan **Mode Scan Medis Riil BodyParts3D 4.0** (2.234 model hasil segmentasi MRI/CT).
+
+Dilengkapi dengan kendali kamera multi-sudut dinamis (*Orbit & Free Cam Fly-through*), *Pinpoint Highlight* presisi mikro berdenyut, pemotongan radiologis real-time (*CT/MRI cross-section*), pencocok gejala penyakit diferensial, serta otomasi skrip yang dapat dipandu oleh agen kecerdasan buatan (AI Prompt Generator untuk Claude, ChatGPT, Gemini, Ollama).
 
 ---
 
 ## Fitur Utama
 
-- **Model 3D Anatomi Multi-Sistem:**
-  - **Rangka (*Skeletal*):** Kranium (Tulang Frontal, Parietal, Temporal dengan prosesus mastoid/stiloid, Oksipital, Sfenoid), maksila, mandibula bersendi, lengkung gigi, tulang rawan iga, klavikula, skapula, vertebra servikal/torakal/lumbal, sakrum, koksigis, dan tulang ekstremitas atas & bawah.
-  - **Otot (*Muscular*):** Otot wajah & leher (masseter, temporalis, SCM), otot punggung (trapezius, latissimus dorsi, erektor spinae), otot dada (pektoralis mayor & minor, interkostal), otot dinding perut, kuadriseps, hamstring, gastroknemius, soleus, tendon Achilles, ligamen patela, dan traktus iliotibialis (*IT band*).
-  - **Peredaran Darah & Jantung (*Circulatory*):** Jantung 4 ruang berdetak dinamis, aorta, arteri karotis, vena jugularis, arteri subklavia, arteri & vena brakialis, arteri & vena femoralis, trunkus seliakus, arteri mesenterika superior & inferior, vena renalis, vena iliaka, serta **arteri koroner** (*LAD / The Widow Maker*, *RCA*, *LCx*) dan sistem kelenjar getah bening limfatik.
-  - **Pernapasan (*Respiratory*):** Laring, tulang rawan krikoid, epiglotis, trakea bergelang kartilago, karina trakea, bronkus primer & sekunder, lobus paru kiri & kanan, dan diafragma bergerak dengan animasi respirasi.
-  - **Pencernaan (*Digestive*):** Rongga mulut & lidah, faring, esofagus, lambung, lobus hati kiri & kanan, kandung empedu, saluran empedu utama (*ductus choledochus*), pankreas, saluran pankreas (*ductus pancreaticus*), duodenum C-loop, jejunum, ileum, sekum, apendiks vermiformis, dan kolon bersegmen hingga rektum.
-  - **Saraf (*Nervous*):** Hemisfer serebri, serebelum, batang otak, saraf optik (CN II) & kiasma optikum, traktus olfaktorius (CN I), saraf trigeminus (CN V), sumsum tulang belakang, kauda ekuina (*cauda equina*), pleksus brakialis, saraf radialis, saraf medianus, saraf ulnaris, saraf femoralis, saraf iskiadikus (*sciatic*), saraf tibialis, dan saraf fibularis komunis.
-  - **Endokrin & Kemih (*Endocrine & Urinary*):** Kelenjar hipofisis (*pituitary*), kelenjar timus, kelenjar tiroid, kelenjar adrenal, ginjal, ureter, dan kandung kemih.
-  - **Kulit (*Integumentary*):** Penanda kontur tubuh semi-transparan untuk orientasi spasial.
+### 1. Desain Kompatibel Mobile & Layar Penuh (Mobile-First Fullscreen)
+- **Kanvas 3D Penuh di Layar Smartphone (`100dvh`):** Kanvas 3D otomatis mengisi seluruh layar ponsel tanpa terhimpit oleh panel samping.
+- **Bilah Navigasi Cepat Mengambang (*Floating Bottom Bar*):** Akses instan ke `Kanvas 3D`, `Struktur`, `Diagnosa`, `Skrip AI`, dan `Layar Penuh`.
+- **Laci Geser Halus (*Slide-Up Bottom Sheets*):** Membuka panel struktur 15 sistem dan diagnosa gejala secara modular tanpa mengganggu viewport 3D.
+- **Mode Layar Penuh Mobile Murni:** Satu sentuhan untuk mengaktifkan Fullscreen API peramban dan menyembunyikan semua antarmuka (Zen Mode), menyisakan 100% kanvas 3D imersif dengan tombol keluar minimalis.
+- **Gestur Sentuh Halus (`touch-action: none`):** Rotasi halus satu jari dan cubit dua jari (*pinch-to-zoom*) tanpa memicu tarikan halaman atau refresh peramban ponsel.
 
-- **Mode Layar Penuh & Tampilan Fokus (Zen Mode):**
-  - Sembunyikan panel navigasi kiri, panel info kanan, dan header secara bersamaan untuk visualisasi kanvas 3D 100% tanpa distraksi.
-  - Toolbar mengambang (*floating HUD*) pada kanvas memudahkan navigasi saat panel tertutup.
-  - Pemilih lapisan anatomi cepat (*Quick Layer Drawer*) langsung di atas kanvas 3D.
-  - Dukungan Fullscreen Browser native.
+### 2. Dual-Engine Visualisasi Anatomi
+- **Mode Simulasi Kinematik:**
+  - Multi-sistem tubuh terpadu: Rangka lengkap, otot bergradien kontraksi, organ dalam, sistem koroner jantung berdetak ritmis (72-76 bpm), respirasi paru & diafragma, serta artikulasi sendi bebas (bahu, siku, pergelangan, panggul, lutut, leher, rahang).
+- **Mode Scan Medis Riil (BodyParts3D 4.0):**
+  - **2.234 Mesh Anatomi Asli:** Berasal dari data pemindaian medis nyata dan ontologi FMA (*Foundational Model of Anatomy*).
+  - **15 Sistem Anatomi:** Rangka, Otot Rangka, Jantung, Arteri, Vena, Saraf, Pernapasan, Pencernaan, Kemih, Limfatik & Imun, Endokrin, Reproduksi, Kulit, Jaringan Ikat, dan Organ Sensorik.
+  - **Penguraian Spasial (*Exploded Inventory* 0–100%):** Memisahkan seluruh 2.234 struktur ke dalam grid spasial 3D untuk inspeksi bagian mikro.
+  - **Potongan Bidang CT/MRI (*Cross-Section Clipping*):** Memotong tubuh pada bidang Sagital ($X$), Aksial ($Y$), atau Koronal ($Z$) secara real-time.
 
-- **Integrasi Skrip Agen AI & Otomasi:**
-  - Runtime global `window.anatomy` menyediakan API lengkap untuk inspeksi, penyorotan, pergerakan sendi, kamera orbit, potongan bidang aksial/sagital/koronal, dan animasi.
-  - Template prompt siap salin untuk **Claude**, **ChatGPT**, **Gemini**, atau **Ollama lokal**.
-  - Dukungan eksekusi deklaratif berbasis JSON (`anatomy.exec([...])`).
+### 3. Pinpoint Highlight & Shot Sinematik Animatif
+- **Pinpoint Highlight Presisi Mikro:** Bukan hanya melihat organ secara luas, melainkan menyorot langsung titik patologis spesifik (misal: oklusi percabangan arteri koroner LAD, hernia diskus L4-L5, kiasma optikum), meredupkan organ sekitar, dan menancapkan pin 3D berdenyut dengan tingkat keparahan klinis (*severity 1, 2, 3*).
+- **Kamera Sinematik Mulus:** Gliding kamera swoop-in close-up, rotasi orbital terukur, serta transisi interpolasi halus (*easeInOutQuad*).
+- **Free Cam (Kamera Terbang Bebas):** Navigasi first-person (WASD, Space/Shift, drag mouse) untuk terbang menjelajahi rongga dalam tubuh manusia (mediastinum, intrakranial, retroperitoneum).
 
-- **Arsitektur Offline-First & Zero-Database Fallback:**
-  - Dapat langsung dijalankan secara mandiri tanpa harus memasang database eksternal. Apabila `DATABASE_URL` tidak tersedia, sistem secara otomatis beralih ke penyimpanan in-memory lokal yang memuat seluruh kamus gejala dan data penyakit.
+### 4. Generator AI Prompt Komprehensif & Skrip Otomasi
+- Antarmuka runtime global `window.anatomy` menyediakan API lengkap untuk dikendalikan kode JavaScript maupun skrip agen AI.
+- Dilengkapi penyalin sistem prompt komprehensif untuk **Claude 3.7**, **ChatGPT-4o**, **Gemini 2.5 Flash**, dan **Ollama lokal**.
+- Koleksi contoh skrip sinematik siap pakai:
+  1. *Oklusi Akut Arteri Koroner (LAD) & Infark Miokard*
+  2. *Saraf Kejepit HNP Lumbal & Ischialgia*
+  3. *Saraf Kranial & Kiasma Optikum*
+  4. *Refleks Patela & Biomekanika Genu*
+  5. *Penguraian Spasial 2.234 Model Medis*
+  6. *Penerbangan Bebas (Free Cam Flight) Melintasi Toraks*
+
+### 5. Arsitektur Offline-First & Penyimpanan Lokal
+- Menggunakan penyimpanan lokal peramban (*localStorage*) untuk penanda gejala dan koleksi skrip pengguna sehingga data tetap bertahan saat peramban ditutup.
+- Bebas dependensi database eksternal untuk pengoperasian mandiri.
 
 ---
 
@@ -39,12 +55,12 @@ ANATOMI adalah platform edukasi anatomi manusia 3D berbasis web modern yang inte
 
 | Tombol | Fungsi |
 |---|---|
-| `Z` | Beralih Mode Layar Penuh 3D / Zen Mode (sembunyikan seluruh navigasi) |
-| `[` | Tampilkan / Sembunyikan Panel Struktur Kiri |
-| `]` | Tampilkan / Sembunyikan Panel Info & Diagnostik Kanan |
-| `H` | Tampilkan / Sembunyikan Header |
+| `Z` | Mode Layar Penuh 3D / Zen Mode (sembunyikan/tampilkan semua panel) |
+| `[` | Sembunyikan / Tampilkan Panel Struktur Kiri |
+| `]` | Sembunyikan / Tampilkan Panel Info & Diagnostik Kanan |
+| `H` | Sembunyikan / Tampilkan Header Utama |
 | `F` | Layar Penuh Browser Native |
-| `Esc` | Keluar dari Zen Mode / Batalkan Mode Penandaan |
+| `Esc` | Keluar dari Mode Layar Penuh / Tutup Laci Mobile |
 | `Ctrl / Cmd + Enter` | Jalankan kode pada Editor Skrip |
 
 ---
@@ -52,33 +68,22 @@ ANATOMI adalah platform edukasi anatomi manusia 3D berbasis web modern yang inte
 ## Menjalankan Aplikasi Secara Lokal
 
 ### Prasyarat
-- [Node.js](https://nodejs.org/) versi 18 atau yang lebih baru.
+- [Node.js](https://nodejs.org/) versi 18 atau lebih baru.
 
-### Instalasi & Menjalankan
-
+### Langkah-langkah
 ```bash
 # Pasang dependensi
 npm install
 
-# Jalankan server pengembangan
+# Jalankan server lokal Next.js
 npm run dev
 ```
 
-Buka peramban pada alamat `http://localhost:3000`.
-
-### Menjalankan Build Produksi
-
-```bash
-# Bangun aplikasi untuk produksi
-npm run build
-
-# Jalankan server produksi
-npm start
-```
+Buka `http://localhost:3000` pada peramban Anda.
 
 ---
 
 ## Lisensi & Atribusi
 
 Hak Cipta © 2026 **ANATOMI** oleh **Ardellio Satria Anindito**.  
-Dikembangkan untuk tujuan visualisasi dan edukasi anatomi manusia interaktif.
+Basis data medis BodyParts3D 4.0 dirilis di bawah lisensi *Creative Commons Attribution 4.0 International* (The Database Center for Life Science, Jepang).

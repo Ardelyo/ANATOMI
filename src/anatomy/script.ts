@@ -88,6 +88,19 @@ export function createApi(e: AnatomyEngine, ctl: Ctl, log: Log) {
       if (!id) throw new Error(`bagian tidak ditemukan: ${String(t)}`);
       return e.addMarker({ partId: id, label, severity: o?.severity ?? 1, always: true, point: o?.point });
     },
+    pinpoint: (
+      t: Target,
+      o?: {
+        point?: [number, number, number];
+        label?: string;
+        severity?: number;
+        duration?: number;
+        distance?: number;
+        azimuth?: number;
+        elevation?: number;
+        color?: string;
+      },
+    ) => e.pinpoint(t, o),
     unmark: (id: string) => e.removeMarker(id),
     clearMarks: () => e.clearMarkers(false),
 
@@ -219,180 +232,176 @@ export interface Example {
 
 export const EXAMPLES: Example[] = [
   {
-    name: "Sirkulasi koroner & serangan jantung",
-    desc: "Visualisasikan arteri koroner (LAD, RCA, LCx) dan area iskemia miokardium.",
-    code: `await anatomy.reset();
-anatomy.layer('integumentary', { visible: false });
-anatomy.layer('skeletal', { opacity: 0.15 });
-anatomy.layer('muscular', { visible: false });
-anatomy.highlight(['heart', 'left-coronary-artery', 'anterior-interventricular-artery', 'right-coronary-artery', 'circumflex-artery'], { dim: true });
-await anatomy.focus('heart', { duration: 1200, distance: 1.15, azimuth: 20, elevation: 8 });
-anatomy.heartbeat(76);
-anatomy.blink(['anterior-interventricular-artery'], { color: '#e03030', times: 6 });
-anatomy.mark('anterior-interventricular-artery', 'Oklusi LAD ("The Widow Maker")', { severity: 3 });
-anatomy.mark('left-ventricle', 'Iskemia dinding anterior bilik kiri', { severity: 3 });
-log('Arteri desenden anterior kiri (LAD) memperdarahi 50% miokardium ventrikel kiri.');
-await sleep(2500);
-await anatomy.orbit(60, 5, { duration: 2500 });`,
-  },
-  {
-    name: "Saraf perifer & jalur refleks",
-    desc: "Jalur saraf dari sumsum tulang belakang, kauda ekuina, hingga tungkai.",
-    code: `await anatomy.reset();
-anatomy.layer('integumentary', { opacity: 0.08 });
-anatomy.layer('skeletal', { opacity: 0.5 });
-anatomy.layer('muscular', { opacity: 0.25, visible: true });
-anatomy.highlight(['spinal-cord', 'cauda-equina', 'femoral-nerve', 'sciatic-nerve', 'common-fibular-nerve', 'tibial-nerve', 'patellar-ligament'], { color: '#d9cd96', dim: true });
-await anatomy.focus(['lumbar', 'pelvis'], { duration: 1200, azimuth: 165, elevation: 12 });
-anatomy.mark('cauda-equina', 'Kauda ekuina (berkas saraf spinal L2–S5)', { severity: 2 });
-anatomy.mark('sciatic-nerve.L', 'Nervus iskiadikus paha belakang', { severity: 2 });
-await sleep(2400);
-await anatomy.focus(['femur.L', 'shank.L'], { duration: 1500, azimuth: 30, elevation: -5 });
-anatomy.mark('patellar-ligament.L', 'Ligamen patela (titik refleks lutut)');
-anatomy.mark('common-fibular-nerve.L', 'Saraf fibularis leher tulang betis', { severity: 1 });`,
-  },
-  {
-    name: "Kranium & saraf kranial",
-    desc: "Tulang kranium (frontal, parietal, temporal, oksipital) dan saraf optik/trigeminus.",
-    code: `await anatomy.reset();
-anatomy.layer('integumentary', { visible: false });
-anatomy.layer('muscular', { visible: false });
-anatomy.isolate(['cranium', 'frontal-bone', 'parietal-bone', 'temporal-bone', 'occipital-bone', 'sphenoid-bone', 'cerebrum', 'optic-nerve', 'trigeminal-nerve', 'pituitary-gland'], { dim: true });
-await anatomy.view('front', { duration: 1000, distance: 1.15 });
-anatomy.highlight(['frontal-bone', 'parietal-bone', 'temporal-bone', 'occipital-bone'], { color: '#e6e3da' });
-anatomy.highlight(['optic-nerve', 'trigeminal-nerve', 'pituitary-gland'], { color: '#d9cd96', intensity: 0.8 });
-anatomy.mark('optic-nerve.L', 'Nervus opticus (CN II) & kiasma', { severity: 2 });
-anatomy.mark('pituitary-gland', 'Kelenjar hipofisis di sela tursika', { severity: 1 });
-await sleep(2500);
-await anatomy.orbit(45, 15, { duration: 2500 });`,
-  },
-  {
-    name: "Detak jantung",
-    desc: "Fokus pada jantung, animasikan lub-dub, putar kamera.",
-    code: `// Detak jantung 72 bpm
+    name: "Shot Sinematik: Oklusi Arteri Koroner (LAD) & Infark",
+    desc: "Kamera meluncur ke apeks jantung, detak aktif, dan pinpoint highlight oklusi LAD berdenyut.",
+    code: `// Shot Sinematik: Oklusi Akut Arteri Koroner (LAD) & Infark Miokard
 await anatomy.reset();
-anatomy.layer('skeletal', { opacity: 0.2 });
 anatomy.layer('integumentary', { visible: false });
-anatomy.highlight('heart', { color: '#e0605f', intensity: 0.25, dim: true });
-await anatomy.focus('heart', { duration: 1200, azimuth: 0, elevation: 5 });
-anatomy.heartbeat(72);
-anatomy.mark('left-ventricle', 'Bilik kiri (pompa utama)');
-anatomy.mark('right-atrium', 'Serambi kanan');
-await sleep(2500);
-await anatomy.orbit(70, 10, { duration: 2200 });
-await anatomy.orbit(-70, 10, { duration: 3600 });
-await anatomy.view('front');`,
-  },
-  {
-    name: "Pernapasan",
-    desc: "Paru-paru, diafragma, dan rongga dada bergerak.",
-    code: `await anatomy.reset();
-anatomy.layer('skeletal', { opacity: 0.45 });
-anatomy.layer('integumentary', { opacity: 0.07 });
-anatomy.highlight(['lung', 'diaphragm'], { color: '#3b73d6', intensity: 0.18 });
-await anatomy.focus('thorax', { duration: 1200 });
-anatomy.breathe(14);
-await sleep(3500);
-await anatomy.view('left', { duration: 1600, distance: 2.2 });
-await sleep(4000);`,
-  },
-  {
-    name: "Putar ke semua arah",
-    desc: "Tampilkan model dari depan, kanan, belakang, kiri, atas, bawah.",
-    code: `await anatomy.reset();
-for (const v of ['front', 'right', 'back', 'left', 'top', 'bottom', 'front']) {
-  await anatomy.view(v, { duration: 1400 });
-  log('Tampilan:', v);
-  await sleep(700);
-}`,
-  },
-  {
-    name: "Telusuri saluran cerna",
-    desc: "Sorot organ pencernaan satu per satu dari esofagus ke rektum.",
-    code: `await anatomy.reset();
 anatomy.layer('skeletal', { opacity: 0.15 });
-anatomy.layer('integumentary', { visible: false });
-const route = ['esophagus','stomach','duodenum','jejunum','ileum','cecum','ascending-colon','transverse-colon','descending-colon','sigmoid-colon','rectum'];
-await anatomy.focus('digestive', { duration: 1100 });
-for (const id of route) {
-  anatomy.unhighlight();
-  anatomy.highlight(id, { color: '#2f6fe0', dim: true });
-  const d = anatomy.info(id);
-  anatomy.clearMarks();
-  anatomy.mark(id, d.name);
-  log(d.name + ' — ' + d.description);
-  await sleep(1300);
-}
-anatomy.unhighlight();
-anatomy.clearMarks();`,
-  },
-  {
-    name: "Gejala serangan jantung",
-    desc: "Jalankan pemeriksa gejala lalu tandai area nyeri menjalar.",
-    code: `await anatomy.reset();
-anatomy.layer('integumentary', { opacity: 0.08 });
-const hasil = await anatomy.diagnose(['nyeri-dada', 'nyeri-lengan-kiri', 'keringat-dingin', 'sesak-napas']);
-log('Kemungkinan teratas:', hasil[0].name, '(skor ' + hasil[0].score + ')');
-anatomy.mark('left-ventricle', 'Nyeri dada menekan', { severity: 3 });
-anatomy.mark('humerus.L', 'Nyeri menjalar ke lengan kiri', { severity: 2 });
-anatomy.mark('mandible', 'Nyeri rahang', { severity: 2 });
-await sleep(1500);
-anatomy.blink(['left-ventricle'], { times: 5 });
-await anatomy.orbit(40, 8, { duration: 2500 });`,
-  },
-  {
-    name: "HNP lumbal (saraf kejepit)",
-    desc: "Diskus L4–L5 dan L5–S1 menekan saraf iskiadikus.",
-    code: `await anatomy.reset();
-anatomy.layer('integumentary', { visible: false });
-anatomy.layer('skeletal', { opacity: 1 });
 anatomy.layer('muscular', { visible: false });
-anatomy.isolate(['spine', 'ilium', 'sciatic-nerve', 'spinal-cord', 'femur'], { dim: true });
-anatomy.highlight(['disc-L4-L5', 'disc-L5-S1'], { color: '#e0605f', intensity: 0.6 });
-anatomy.highlight('sciatic-nerve', { color: '#e0a02b', intensity: 0.6 });
-await anatomy.focus(['lumbar', 'sacrum'], { duration: 1200, azimuth: 160, elevation: 8 });
-anatomy.mark('disc-L4-L5', 'Diskus L4–L5 menonjol', { severity: 3 });
-anatomy.mark('sciatic-nerve.L', 'Nyeri menjalar sepanjang saraf', { severity: 2 });
-await sleep(1500);
-await anatomy.view('left', { duration: 1800, distance: 1.6 });
-anatomy.blink(['disc-L4-L5', 'disc-L5-S1'], { times: 4 });`,
+
+log('1. Mengarahkan kamera meluncur cepat ke rongga dada...');
+await anatomy.view('front', { duration: 900, distance: 2.8 });
+
+log('2. Kamera swoop-in close-up ke apeks jantung & detak 76 bpm...');
+await anatomy.focus('heart', { duration: 1400, distance: 0.95, azimuth: 22, elevation: 10 });
+anatomy.heartbeat(76);
+
+log('3. Pinpoint highlight pada percabangan arteri LAD (The Widow Maker)...');
+await anatomy.pinpoint('anterior-interventricular-artery', {
+  label: 'Oklusi Akut LAD (Infark Miokard)',
+  severity: 3,
+  duration: 1200,
+  distance: 0.42
+});
+
+log('4. Orbital camera sweep mengelilingi miokardium yang iskemia...');
+await anatomy.orbit(65, 12, { duration: 2500, distance: 0.52 });
+await sleep(600);
+
+log('5. Pinpoint highlight pada zona iskemia ventrikel kiri...');
+await anatomy.pinpoint('left-ventricle', {
+  label: 'Zona Iskemia Dinding Anterior',
+  severity: 3,
+  duration: 1000
+});
+
+await anatomy.orbit(20, 8, { duration: 2000, distance: 0.7 });
+log('Visualisasi infark miokard selesai.');`,
   },
   {
-    name: "Berjalan",
-    desc: "Siklus jalan sederhana: pinggul, lutut, pergelangan, ayunan lengan.",
-    code: `await anatomy.reset();
-anatomy.layer('muscular', { visible: true });
-anatomy.layer('integumentary', { opacity: 0.07 });
-anatomy.layer('skeletal', { opacity: 0.7 });
-await anatomy.view('right', { duration: 1000, distance: 3.2 });
-anatomy.walk(1);
-await sleep(7000);
-anatomy.walk(false);
-await anatomy.pose('rest');`,
-  },
-  {
-    name: "Lambaian tangan",
-    desc: "Gerakkan sendi bahu dan siku secara berurutan.",
-    code: `await anatomy.reset();
-anatomy.layer('muscular', { visible: true });
-await anatomy.view('front', { duration: 800 });
-await anatomy.joint('shoulder.R', { abd: 150 }, { duration: 800 });
-for (let i = 0; i < 4; i++) {
-  await anatomy.joint('elbow.R', 55, { duration: 350 });
-  await anatomy.joint('elbow.R', 5, { duration: 350 });
-}
-await anatomy.pose('rest');`,
-  },
-  {
-    name: "Pisahkan antar sistem",
-    desc: "Tampilan terurai: tiap sistem organ bergeser ke samping.",
-    code: `await anatomy.reset();
-anatomy.layer('muscular', { visible: true });
+    name: "Shot Sinematik: Saraf Kejepit HNP L4-L5 & Ischialgia",
+    desc: "Kamera meluncur ke punggung bawah, potongan sagital aktif, dan pinpoint radiks saraf.",
+    code: `// Shot Sinematik: Saraf Kejepit HNP L4-L5 & Ischialgia
+await anatomy.reset();
 anatomy.layer('integumentary', { visible: false });
-await anatomy.view('front', { duration: 600 });
-await anatomy.explode(1, { duration: 1400 });
-await sleep(3500);
-await anatomy.explode(0, { duration: 1200 });`,
+anatomy.layer('muscular', { visible: false });
+anatomy.layer('skeletal', { opacity: 1 });
+
+log('1. Kamera memutar meluncur ke punggung bawah...');
+await anatomy.view('back', { duration: 1100, distance: 2.2 });
+await sleep(400);
+
+log('2. Kamera menyelam ke segmen lumbal L4-L5 dan sakrum...');
+await anatomy.focus(['lumbar', 'sacrum'], { duration: 1400, distance: 0.7, azimuth: 165, elevation: 8 });
+
+log('3. Mengaktifkan potongan sagital melintasi kanalis spinalis...');
+anatomy.clip('x', 0, false);
+await sleep(1200);
+
+log('4. Pinpoint highlight pada penonjolan diskus L4-L5...');
+await anatomy.pinpoint('disc-L4-L5', {
+  label: 'Hernia Nukleus Pulposus (HNP) L4-L5',
+  severity: 3,
+  duration: 1100,
+  distance: 0.45
+});
+
+log('5. Pinpoint highlight pada radiks saraf iskiadikus yang terjepit...');
+await anatomy.pinpoint('sciatic-nerve.L', {
+  label: 'Kompresi Radiks N. Iskiadikus (Nyeri Menjalar)',
+  severity: 2,
+  duration: 1200,
+  distance: 0.5
+});
+
+await anatomy.orbit(195, 14, { duration: 2400 });
+await sleep(1500);
+anatomy.clip(null);
+log('Potongan bidang dinonaktifkan.');`,
+  },
+  {
+    name: "Shot Sinematik: Refleks Patela & Inervasi Tungkai",
+    desc: "Kamera meluncur ke lutut, pinpoint ligamen patela, dan memicu refleks ekstensi sendi.",
+    code: `// Shot Sinematik: Refleks Patela & Inervasi Tungkai
+await anatomy.reset();
+anatomy.layer('integumentary', { opacity: 0.08 });
+anatomy.layer('muscular', { opacity: 0.6 });
+anatomy.layer('skeletal', { opacity: 0.8 });
+
+log('1. Kamera meluncur ke artikulasio genu (sendi lutut kiri)...');
+await anatomy.focus('patella.L', { duration: 1200, distance: 0.75, azimuth: 25, elevation: -5 });
+
+log('2. Pinpoint highlight pada ligamen patela (titik ketukan refleks L2-L4)...');
+await anatomy.pinpoint('patellar-ligament.L', {
+  label: 'Ligamentum Patellae (Refleks Monosinaptik L2-L4)',
+  severity: 1,
+  duration: 1000,
+  distance: 0.4
+});
+await sleep(800);
+
+log('3. Stimulasi refleks: kontraksi kuadriseps & ekstensi sendi lutut...');
+for (let i = 0; i < 3; i++) {
+  await anatomy.joint('knee.L', 0, { duration: 180 });
+  await anatomy.joint('knee.L', 35, { duration: 250 });
+  await sleep(400);
+}
+
+log('Refleks patela positif fisiologis.');`,
+  },
+  {
+    name: "Shot Sinematik: Kranium & Saraf Kranial",
+    desc: "Kamera menyelam masuk ke kranium, isolasi persarafan visual dan sela tursika.",
+    code: `// Shot Sinematik: Kranium & Saraf Kranial
+await anatomy.reset();
+anatomy.layer('integumentary', { visible: false });
+anatomy.layer('muscular', { visible: false });
+
+log('1. Mengarahkan kamera meluncur ke kepala...');
+await anatomy.view('front', { duration: 900, distance: 1.5 });
+
+log('2. Kamera menyelam close-up ke dasar kranium anterior...');
+await anatomy.focus('optic-nerve.L', { duration: 1400, distance: 0.35, elevation: 18, azimuth: 12 });
+
+log('3. Pinpoint highlight pada N. Optikus (CN II) & Kiasma Optikum...');
+await anatomy.pinpoint('optic-nerve.L', {
+  label: 'Nervus Opticus & Kiasma Optikum (CN II)',
+  severity: 2,
+  duration: 1100,
+  distance: 0.25
+});
+await sleep(800);
+
+log('4. Pinpoint highlight pada kelenjar hipofisis di sela tursika...');
+await anatomy.pinpoint('pituitary-gland', {
+  label: 'Kelenjar Hipofisis (Master Gland)',
+  severity: 1,
+  duration: 1000
+});
+
+log('5. Rotasi kamera orbital 360 derajat mengelilingi dasar otak...');
+await anatomy.orbit(60, 20, { duration: 2600, distance: 0.45 });`,
+  },
+  {
+    name: "Shot Sinematik: Saluran Cerna & Duodenum C-Loop",
+    desc: "Swoop-in menelusuri lambung, kurvatura duodenum, dan saluran empedu/pankreas.",
+    code: `// Shot Sinematik: Saluran Cerna & Duodenum
+await anatomy.reset();
+anatomy.layer('integumentary', { visible: false });
+anatomy.layer('skeletal', { opacity: 0.15 });
+
+log('1. Meluncur ke regio epigastrium dan hipokondrium kiri...');
+await anatomy.focus('stomach', { duration: 1100, distance: 0.85, azimuth: 10, elevation: 5 });
+
+log('2. Pinpoint highlight pada saluran empedu utama (bile duct)...');
+await anatomy.pinpoint('bile-duct', {
+  label: 'Ductus Choledochus (Saluran Empedu)',
+  severity: 2,
+  duration: 1000,
+  distance: 0.4
+});
+await sleep(800);
+
+log('3. Pinpoint highlight pada kurvatura duodenum C-loop & pankreas...');
+await anatomy.pinpoint('duodenum', {
+  label: 'Duodenum C-Loop & Ampula Vater',
+  severity: 1,
+  duration: 1100,
+  distance: 0.45
+});
+
+await anatomy.orbit(45, 12, { duration: 2400 });`,
   },
 ];
 
@@ -421,7 +430,9 @@ TAMPILAN
   anatomy.opacity(t, 0..1)          anatomy.xray(true|false)
   anatomy.clip('x'|'y'|'z'|null, posisi, {flip?})   → potongan sagital(x) / aksial(y) / koronal(z)
 
-PENANDAAN
+PENANDAAN & PINPOINT HIGHLIGHT
+  await anatomy.pinpoint(t, {point?: [x,y,z], label?, severity?: 1|2|3, duration?, distance?, azimuth?, elevation?, color?})
+      → Menyorot target secara presisi mikro, kamera swoop-in close-up dramatis, menancapkan pin 3D berdenyut, dan meredupkan struktur lain.
   anatomy.highlight(t, {color?, intensity?, dim?})  anatomy.unhighlight(t?)
   anatomy.blink(t, {color?, times?, period?})
   anatomy.mark(t, "label", {severity?: 1|2|3, point?: [x,y,z]}) → id penanda     anatomy.unmark(id)  anatomy.clearMarks()
@@ -474,10 +485,21 @@ Karya: Ardellio Satria Anindito
 Tujuan: Visualisasi interaktif anatomi manusia 3D multi-sistem (Rangka, Otot, Organ, Sirkulasi Koroner, Pernapasan, Pencernaan, Saraf, Endokrin, Kemih) dengan kontrol kamera dan animasi presisi tinggi.
 
 ### PERAN ANDA
-Anda adalah asisten medis & visualisasi visual yang mengendalikan model 3D "ANATOMI" melalui objek runtime global "window.anatomy".
+Anda adalah sutradara visualisasi medis & asisten anatomi komputasional yang mengendalikan model 3D "ANATOMI" melalui objek runtime global "window.anatomy".
 Tulis HANYA kode JavaScript yang valid (atau format JSON anatomy.exec jika diminta) tanpa pembungkus penjelasan ekstra.
 Selalu mulai dengan:
   await anatomy.reset();
+
+### PRINSIP SINEMATIK & PINPOINT HIGHLIGHTING:
+1. JANGAN HANYA MELIHAT ORGAN SECARA LUAS:
+   Gunakan "await anatomy.pinpoint(target, { label, severity, duration, distance })" untuk menyorot secara mikro presisi, menancapkan pulsing pin 3D berdenyut, dan mengarahkan kamera swoop-in close-up dramatis ke titik patologis!
+2. CHOREOGRAFI KAMERA ANIMATIF:
+   Gunakan kombinasi "anatomy.view()", "anatomy.focus()", "anatomy.orbit()", dan "anatomy.zoom()" dengan parameter { duration, distance, azimuth, elevation } agar kamera meluncur dengan mulus (smooth easeInOut), bukan berpindah patah-patah!
+3. KINEMATIKA & FISIOLOGI AKTIF:
+   Padukan pinpoint highlight dengan simulasi fisiologis: "anatomy.heartbeat(bpm)", "anatomy.breathe(rate)", atau pergerakan sendi "anatomy.joint()".
+4. POTONGAN RADIOLOGIS REAL-TIME:
+   Gunakan "anatomy.clip('x'|'y'|'z', pos, {flip})" untuk membelah tubuh pada bidang sagital, aksial, atau koronal saat menginspeksi organ dalam atau kanalis spinalis.
+
 Gunakan "await" untuk setiap animasi/transisi dan "await sleep(ms)" untuk jeda antar adegan.
 Gunakan Bahasa Indonesia baku dan terminologi Latin anatomi resmi untuk label penanda.
 
