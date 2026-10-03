@@ -176,10 +176,10 @@ export default function BodyPartsViewer({
 
       {/* Floating Toolbar Navigasi & Layar Penuh Kanan Atas */}
       <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5 rounded border border-line-strong bg-white/95 p-1 shadow-sm backdrop-blur">
-        {/* Toggle Struktur */}
+        {/* Toggle Struktur (Desktop) */}
         {onToggleLeft && (
           <button
-            className={`flex h-7 items-center gap-1 px-2 text-[11.5px] font-medium transition-colors ${
+            className={`hidden lg:flex h-7 items-center gap-1 px-2 text-[11.5px] font-medium transition-colors ${
               leftVisible ? "bg-wash text-ink" : "text-faint hover:text-ink"
             }`}
             onClick={onToggleLeft}
@@ -189,20 +189,20 @@ export default function BodyPartsViewer({
               <rect x="2" y="2" width="12" height="12" rx="1.5" />
               <path d="M6 2v12" />
             </svg>
-            <span className="hidden sm:inline">Struktur</span>
+            <span>Struktur</span>
           </button>
         )}
 
-        {/* Toggle Info */}
+        {/* Toggle Info (Desktop) */}
         {onToggleRight && (
           <button
-            className={`flex h-7 items-center gap-1 px-2 text-[11.5px] font-medium transition-colors ${
+            className={`hidden lg:flex h-7 items-center gap-1 px-2 text-[11.5px] font-medium transition-colors ${
               rightVisible ? "bg-wash text-ink" : "text-faint hover:text-ink"
             }`}
             onClick={onToggleRight}
             title={rightVisible ? "Sembunyikan Panel Info ( ] )" : "Tampilkan Panel Info ( ] )"}
           >
-            <span className="hidden sm:inline">Info</span>
+            <span>Info</span>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
               <rect x="2" y="2" width="12" height="12" rx="1.5" />
               <path d="M10 2v12" />
@@ -210,10 +210,10 @@ export default function BodyPartsViewer({
           </button>
         )}
 
-        {/* Toggle Header */}
+        {/* Toggle Header (Desktop) */}
         {onToggleHeader && (
           <button
-            className={`hidden h-7 items-center gap-1 px-2 text-[11.5px] font-medium transition-colors md:flex ${
+            className={`hidden h-7 items-center gap-1 px-2 text-[11.5px] font-medium transition-colors lg:flex ${
               headerVisible ? "bg-wash text-ink" : "text-faint hover:text-ink"
             }`}
             onClick={onToggleHeader}
@@ -226,18 +226,21 @@ export default function BodyPartsViewer({
           </button>
         )}
 
-        <div className="h-4 w-px bg-line" />
+        <div className="hidden lg:block h-4 w-px bg-line" />
 
         {/* Mode Zen */}
         {onToggleZen && (
           <button
-            className={`flex h-7 items-center gap-1 px-2.5 text-[11.5px] font-medium transition-colors ${
+            className={`flex h-7 items-center gap-1 px-2 sm:px-2.5 text-[11.5px] font-medium transition-colors ${
               isZen ? "bg-accent-deep text-white" : "bg-wash text-ink hover:text-accent-deep"
             }`}
             onClick={onToggleZen}
             title="Layar Penuh / Sembunyikan Semua Panel Navigasi ( Z )"
           >
-            {isZen ? "Keluar Zen" : "Layar Penuh"}
+            <span className="hidden sm:inline">{isZen ? "Keluar Zen" : "Layar Penuh"}</span>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" className="sm:hidden">
+              <path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4" />
+            </svg>
           </button>
         )}
 
@@ -294,9 +297,9 @@ export default function BodyPartsViewer({
           </button>
         </div>
 
-        {/* Sudut Pandang Presisi */}
+        {/* Sudut Pandang Presisi: Desktop */}
         {camMode === "orbit" && (
-          <div className="flex overflow-hidden rounded border border-line-strong bg-white/95 shadow-sm backdrop-blur">
+          <div className="hidden sm:flex overflow-hidden rounded border border-line-strong bg-white/95 shadow-sm backdrop-blur shrink-0">
             {VIEW_BUTTONS.map((vb, idx) => (
               <button
                 key={vb.key}
@@ -311,9 +314,29 @@ export default function BodyPartsViewer({
           </div>
         )}
 
+        {/* Sudut Pandang Presisi: Mobile Dropdown */}
+        {camMode === "orbit" && (
+          <div className="sm:hidden shrink-0">
+            <select
+              className="field !h-7 !w-auto !py-0 !px-2 text-[11.5px] font-medium bg-white/95 shadow-xs border-line-strong"
+              defaultValue="three-quarter"
+              aria-label="Sudut Pandang Kamera"
+              onChange={(e) => engine?.view(e.target.value)}
+            >
+              <option value="front">🎥 Depan</option>
+              <option value="right">Kanan</option>
+              <option value="back">Belakang</option>
+              <option value="left">Kiri</option>
+              <option value="top">Atas</option>
+              <option value="bottom">Bawah</option>
+              <option value="three-quarter">Iso</option>
+            </select>
+          </div>
+        )}
+
         {/* Slider Penguraian (Exploded Inventory) */}
-        <div className="flex items-center gap-2 rounded border border-line-strong bg-white/95 px-3 py-1 shadow-sm backdrop-blur">
-          <span className="text-[11.5px] text-faint font-medium">Urai Model:</span>
+        <div className="flex items-center gap-1.5 sm:gap-2 rounded border border-line-strong bg-white/95 px-2 sm:px-3 py-1 shadow-sm backdrop-blur shrink-0">
+          <span className="text-[11px] sm:text-[11.5px] text-faint font-medium">Urai:</span>
           <input
             type="range"
             min={0}
@@ -325,47 +348,51 @@ export default function BodyPartsViewer({
               setExplodeVal(v);
               engine?.setExplode(v);
             }}
-            className="w-20 cursor-pointer"
+            className="w-14 sm:w-20 cursor-pointer"
             title="Urai struktur anatomi ke dalam ruang spasial"
           />
-          <span className="font-mono text-[10.5px] text-ink min-w-[28px]">{Math.round(explodeVal * 100)}%</span>
+          <span className="font-mono text-[10px] sm:text-[10.5px] text-ink min-w-[24px] sm:min-w-[28px]">
+            {Math.round(explodeVal * 100)}%
+          </span>
         </div>
 
         {/* Tombol Aksi Tambahan */}
-        <div className="flex items-center gap-1.5">
-          <button
-            className="btn"
-            data-on={engine?.spinning ?? false}
-            onClick={() => engine?.spin(!engine.spinning)}
-            title="Putar model secara kontinu"
-          >
-            Putar
-          </button>
-          <button
-            className="btn"
-            data-on={engine?.xrayOn ?? false}
-            onClick={() => engine?.setXray(!engine.xrayOn)}
-            title="Mode X-Ray transparan"
-          >
-            X-ray
-          </button>
-          <button
-            className="btn"
-            onClick={() => {
-              setExplodeVal(0);
-              engine?.setExplode(0);
-              engine?.unhighlight();
-              engine?.isolate(null);
-              engine?.view("three-quarter");
-            }}
-            title="Reset tampilan model"
-          >
-            Reset
-          </button>
-          <button className="btn" onClick={downloadPng} title="Simpan gambar resolusi tinggi PNG">
-            PNG
-          </button>
-        </div>
+        <button
+          className="btn !h-7 !px-2.5 !text-[11.5px] shrink-0"
+          data-on={engine?.spinning ?? false}
+          onClick={() => engine?.spin(!engine.spinning)}
+          title="Putar model secara kontinu"
+        >
+          Putar
+        </button>
+        <button
+          className="btn !h-7 !px-2.5 !text-[11.5px] shrink-0"
+          data-on={engine?.xrayOn ?? false}
+          onClick={() => engine?.setXray(!engine.xrayOn)}
+          title="Mode X-Ray transparan"
+        >
+          X-ray
+        </button>
+        <button
+          className="btn !h-7 !px-2.5 !text-[11.5px] shrink-0"
+          onClick={() => {
+            setExplodeVal(0);
+            engine?.setExplode(0);
+            engine?.unhighlight();
+            engine?.isolate(null);
+            engine?.view("three-quarter");
+          }}
+          title="Reset tampilan model"
+        >
+          Reset
+        </button>
+        <button
+          className="btn !h-7 !px-2.5 !text-[11.5px] shrink-0"
+          onClick={downloadPng}
+          title="Simpan gambar resolusi tinggi PNG"
+        >
+          PNG
+        </button>
       </div>
     </div>
   );
